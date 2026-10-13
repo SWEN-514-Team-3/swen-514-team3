@@ -16,7 +16,7 @@ variable "source_dir" {
 variable "files" {
   description = "Files (relative to source_dir) to upload to the bucket."
   type        = list(string)
-  default     = ["index.html", "styles.css", "main.js"]
+  default     = ["index.html", "main.js"]
 }
 
 variable "index_document" {
