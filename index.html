@@ -1,60 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Meeting Momentum</title>
-  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased">
 
-  <header>
-    <h1>Meeting Momentum</h1>
-    <nav>
-      <a href="#meetings">Meetings</a>
-      <a href="#actions">My Action Items</a>
-      <a href="#backend">Backend Test</a>
-      <a href="#ai">AI Demo</a>
-    </nav>
+  <header class="bg-slate-900 text-white">
+    <div class="mx-auto flex max-w-3xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <h1 class="text-xl font-semibold tracking-tight">Meeting Momentum</h1>
+      <nav class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+        <a href="#meetings" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">Meetings</a>
+        <a href="#actions" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">My Action Items</a>
+        <a href="#backend" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">Backend Test</a>
+        <a href="#ai" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">AI Demo</a>
+      </nav>
+    </div>
   </header>
 
-  <main>
+  <main class="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:py-8">
 
     <!-- Placeholder meetings -->
-    <div class="box" id="meetings">
-      <h2>Meetings</h2>
-      <table>
-        <tr><th>Title</th><th>Date</th><th>Owner</th></tr>
-        <tr><td>Sprint Planning</td><td>2026-10-01</td><td>Alex</td></tr>
-        <tr><td>Design Review</td><td>2026-10-08</td><td>Alex</td></tr>
-        <tr><td>Retro</td><td>2026-10-12</td><td>Alex</td></tr>
-      </table>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="meetings">
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">Meetings</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse text-left text-sm">
+          <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Title</th><th class="px-3 py-2 font-medium">Date</th><th class="px-3 py-2 font-medium">Owner</th></tr>
+          <tr class="border-b border-slate-100"><td class="px-3 py-2">Sprint Planning</td><td class="px-3 py-2 whitespace-nowrap">2026-10-01</td><td class="px-3 py-2">Alex</td></tr>
+          <tr class="border-b border-slate-100"><td class="px-3 py-2">Design Review</td><td class="px-3 py-2 whitespace-nowrap">2026-10-08</td><td class="px-3 py-2">Alex</td></tr>
+          <tr class="border-b border-slate-100"><td class="px-3 py-2">Retro</td><td class="px-3 py-2 whitespace-nowrap">2026-10-12</td><td class="px-3 py-2">Alex</td></tr>
+        </table>
+      </div>
     </div>
 
     <!-- Placeholder action items -->
-    <div class="box" id="actions">
-      <h2>My Action Items</h2>
-      <table>
-        <tr><th>Description</th><th>Due</th><th>Status</th></tr>
-        <tr><td>Write test plan</td><td>2026-10-20</td><td>Open</td></tr>
-        <tr><td>Update diagram</td><td>2026-10-05</td><td class="overdue">Overdue</td></tr>
-        <tr><td>Send notes</td><td>2026-10-02</td><td>Completed</td></tr>
-      </table>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="actions">
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">My Action Items</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse text-left text-sm">
+          <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Description</th><th class="px-3 py-2 font-medium">Due</th><th class="px-3 py-2 font-medium">Status</th></tr>
+          <tr class="border-b border-slate-100"><td class="px-3 py-2">Write test plan</td><td class="px-3 py-2 whitespace-nowrap">2026-10-20</td><td class="px-3 py-2">Open</td></tr>
+          <tr class="border-b border-slate-100"><td class="px-3 py-2">Update diagram</td><td class="px-3 py-2 whitespace-nowrap">2026-10-05</td><td class="px-3 py-2 font-semibold text-red-600">Overdue</td></tr>
+          <tr class="border-b border-slate-100"><td class="px-3 py-2">Send notes</td><td class="px-3 py-2 whitespace-nowrap">2026-10-02</td><td class="px-3 py-2">Completed</td></tr>
+        </table>
+      </div>
     </div>
 
     <!-- Backend test: calls API Gateway -->
-    <div class="box" id="backend">
-      <h2>Backend Test</h2>
-      <button onclick="testBackend()">Call Backend</button>
-      <pre id="backendResult">No result yet.</pre>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="backend">
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">Backend Test</h2>
+      <button type="button" onclick="testBackend()" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Call Backend</button>
+      <pre id="backendResult" class="mt-4 whitespace-pre-wrap break-words rounded-lg bg-slate-100 p-3 font-mono text-sm text-slate-700">No result yet.</pre>
     </div>
 
     <!-- AI demo: sends sample to API Gateway -->
-    <div class="box" id="ai">
-      <h2>AI Demo</h2>
-      <textarea id="aiInput">Filler for now</textarea>
-      <br><br>
-      <button onclick="runAI()">Run AI Sample</button>
-      <pre id="aiResult">No result yet.</pre>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="ai">
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">AI Demo</h2>
+      <label for="aiInput" class="sr-only">Sample text</label>
+      <textarea id="aiInput" class="block h-20 w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">Filler for now</textarea>
+      <button type="button" onclick="runAI()" class="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Run AI Sample</button>
+      <pre id="aiResult" class="mt-4 whitespace-pre-wrap break-words rounded-lg bg-slate-100 p-3 font-mono text-sm text-slate-700">No result yet.</pre>
     </div>
 
   </main>
