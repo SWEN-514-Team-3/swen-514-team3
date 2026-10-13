@@ -1,10 +1,9 @@
 name: Setup
 
-# Run this workflow by hand from the Actions tab
 on:
   workflow_dispatch:
 
-# Needed so GitHub can log in to AWS with OIDC (no access keys stored)
+# needed so github can log in to aws
 permissions:
   id-token: write
   contents: read
@@ -14,44 +13,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Download the repo code onto the runner
       - name: Check out code
         uses: actions/checkout@v7
 
-      # Install Terraform
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.10.5
 
-      # Log in to AWS using the IAM role saved in the AWS_ROLE_ARN variable
       - name: Log in to AWS
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
-      # Make sure the Terraform files are formatted
       - name: Terraform fmt
         working-directory: infrastructure
         run: terraform fmt -check -recursive
 
-      # Download the AWS provider and connect to the S3 state bucket
       - name: Terraform init
         working-directory: infrastructure
         run: terraform init
 
-      # Check the Terraform code for errors
       - name: Terraform validate
         working-directory: infrastructure
         run: terraform validate
 
-      # Create the AWS resources
       - name: Terraform apply
         working-directory: infrastructure
         run: terraform apply -auto-approve
 
-      # Print the website URL and bucket name
       - name: Terraform output
         working-directory: infrastructure
         run: terraform output

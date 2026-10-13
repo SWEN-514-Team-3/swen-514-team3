@@ -1,7 +1,5 @@
 name: Teardown
 
-# Run this workflow by hand from the Actions tab.
-# You have to type "destroy" so it doesn't get run by accident.
 on:
   workflow_dispatch:
     inputs:
@@ -9,7 +7,7 @@ on:
         description: 'Type "destroy" to delete everything'
         required: true
 
-# Needed so GitHub can log in to AWS with OIDC (no access keys stored)
+# needed so github can log in to aws
 permissions:
   id-token: write
   contents: read
@@ -17,33 +15,27 @@ permissions:
 jobs:
   destroy:
     runs-on: ubuntu-latest
-    # Only run if the user typed "destroy"
     if: inputs.confirm == 'destroy'
 
     steps:
-      # Download the repo code onto the runner
       - name: Check out code
         uses: actions/checkout@v7
 
-      # Install Terraform
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.10.5
 
-      # Log in to AWS using the IAM role saved in the AWS_ROLE_ARN variable
       - name: Log in to AWS
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
-      # Download the AWS provider and connect to the S3 state bucket
       - name: Terraform init
         working-directory: infrastructure
         run: terraform init
 
-      # Delete all the AWS resources
       - name: Terraform destroy
         working-directory: infrastructure
         run: terraform destroy -auto-approve

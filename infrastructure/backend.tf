@@ -1,6 +1,5 @@
 terraform {
-  # Store the Terraform state in S3 so every workflow run uses the same state.
-  # The state bucket was created by hand in the AWS Console.
+  # keep state in s3 so every workflow run shares it
   backend "s3" {
     bucket  = "swen514-team3-tfstate-calvinwin7"
     key     = "meeting-momentum/terraform.tfstate"

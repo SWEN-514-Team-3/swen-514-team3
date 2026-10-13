@@ -1,10 +1,8 @@
-# S3 bucket that holds the website files
 resource "aws_s3_bucket" "site" {
   bucket        = "meeting-momentum-frontend-calvinwin7"
-  force_destroy = true # lets Teardown delete the bucket even if it still has files in it
+  force_destroy = true # so destroy works even with files inside
 }
 
-# Turn on static website hosting for the bucket
 resource "aws_s3_bucket_website_configuration" "site" {
   bucket = aws_s3_bucket.site.id
 
@@ -13,7 +11,6 @@ resource "aws_s3_bucket_website_configuration" "site" {
   }
 }
 
-# Allow the bucket to be public (S3 blocks this by default)
 resource "aws_s3_bucket_public_access_block" "site" {
   bucket = aws_s3_bucket.site.id
 
@@ -23,7 +20,6 @@ resource "aws_s3_bucket_public_access_block" "site" {
   restrict_public_buckets = false
 }
 
-# Let anyone read the files so the website loads in a browser
 resource "aws_s3_bucket_policy" "public_read" {
   bucket = aws_s3_bucket.site.id
 
@@ -38,15 +34,14 @@ resource "aws_s3_bucket_policy" "public_read" {
     }]
   })
 
-  # The public access block has to be turned off before AWS accepts a public policy
+  # aws rejects the policy if the public block is still on
   depends_on = [aws_s3_bucket_public_access_block.site]
 }
 
-# Upload index.html from the repo root
 resource "aws_s3_object" "index" {
   bucket       = aws_s3_bucket.site.id
   key          = "index.html"
   source       = "${path.root}/../index.html"
-  etag         = filemd5("${path.root}/../index.html") # re-upload when the file changes
+  etag         = filemd5("${path.root}/../index.html")
   content_type = "text/html"
 }
