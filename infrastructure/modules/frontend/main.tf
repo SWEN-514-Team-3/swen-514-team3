@@ -1,44 +1,19 @@
-locals {
-  content_types = {
-    html = "text/html"
-    css  = "text/css"
-    js   = "application/javascript"
-    json = "application/json"
-    png  = "image/png"
-    jpg  = "image/jpeg"
-    jpeg = "image/jpeg"
-    svg  = "image/svg+xml"
-    ico  = "image/x-icon"
-  }
-}
-
-resource "random_id" "suffix" {
-  byte_length = 4
-}
-
+# S3 bucket that holds the website files
 resource "aws_s3_bucket" "site" {
-  bucket        = "${var.name}-${random_id.suffix.hex}"
-  force_destroy = true # lets Teardown destroy the bucket with objects still inside
-
-  tags = var.tags
+  bucket        = "meeting-momentum-frontend-calvinwin7"
+  force_destroy = true # lets Teardown delete the bucket even if it still has files in it
 }
 
+# Turn on static website hosting for the bucket
 resource "aws_s3_bucket_website_configuration" "site" {
   bucket = aws_s3_bucket.site.id
 
   index_document {
-    suffix = var.index_document
+    suffix = "index.html"
   }
 }
 
-resource "aws_s3_bucket_ownership_controls" "site" {
-  bucket = aws_s3_bucket.site.id
-
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
-}
-
+# Allow the bucket to be public (S3 blocks this by default)
 resource "aws_s3_bucket_public_access_block" "site" {
   bucket = aws_s3_bucket.site.id
 
@@ -48,6 +23,7 @@ resource "aws_s3_bucket_public_access_block" "site" {
   restrict_public_buckets = false
 }
 
+# Let anyone read the files so the website loads in a browser
 resource "aws_s3_bucket_policy" "public_read" {
   bucket = aws_s3_bucket.site.id
 
@@ -62,16 +38,15 @@ resource "aws_s3_bucket_policy" "public_read" {
     }]
   })
 
-  # The bucket-level block must be lifted before a public policy is accepted.
+  # The public access block has to be turned off before AWS accepts a public policy
   depends_on = [aws_s3_bucket_public_access_block.site]
 }
 
-resource "aws_s3_object" "site" {
-  for_each = toset(var.files)
-
+# Upload index.html from the repo root
+resource "aws_s3_object" "index" {
   bucket       = aws_s3_bucket.site.id
-  key          = each.value
-  source       = "${var.source_dir}/${each.value}"
-  etag         = filemd5("${var.source_dir}/${each.value}") # re-upload when the file changes
-  content_type = lookup(local.content_types, lower(regex("[^.]+$", each.value)), "application/octet-stream")
+  key          = "index.html"
+  source       = "${path.root}/../index.html"
+  etag         = filemd5("${path.root}/../index.html") # re-upload when the file changes
+  content_type = "text/html"
 }
