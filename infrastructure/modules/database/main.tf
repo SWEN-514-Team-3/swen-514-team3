@@ -45,6 +45,7 @@ resource "aws_security_group" "db_sg" {
 }
 
 resource "aws_db_instance" "main" {
+  identifier                  = "${var.name}-db"
   engine                      = "postgres"
   engine_version              = "17"
   instance_class              = "db.t4g.micro"
