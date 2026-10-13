@@ -4,6 +4,6 @@ output "frontend_bucket_name" {
 }
 
 output "frontend_website_url" {
-  description = "Public URL of the frontend (S3 static website endpoint)."
+  description = "Public URL of the frontend."
   value       = module.frontend.website_url
 }
