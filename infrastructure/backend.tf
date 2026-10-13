@@ -1,11 +1,10 @@
 terraform {
-  # State bucket is created by hand (versioned, private) and is not managed here.
-  # Credentials come from the environment (GitHub OIDC in CI), never this file.
+  # Store the Terraform state in S3 so every workflow run uses the same state.
+  # The state bucket was created by hand in the AWS Console.
   backend "s3" {
-    bucket       = "swen514-team3-tfstate-calvinwin7"
-    key          = "meeting-momentum/terraform.tfstate"
-    region       = "us-east-1"
-    encrypt      = true
-    use_lockfile = true # S3-native locking; requires Terraform >= 1.10
+    bucket  = "swen514-team3-tfstate-calvinwin7"
+    key     = "meeting-momentum/terraform.tfstate"
+    region  = "us-east-1"
+    encrypt = true
   }
 }
