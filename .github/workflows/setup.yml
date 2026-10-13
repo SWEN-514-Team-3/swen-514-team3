@@ -1,0 +1,48 @@
+name: Setup
+
+on:
+  workflow_dispatch:
+
+# needed so github can log in to aws
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.10.5
+
+      - name: Log in to AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Terraform fmt
+        working-directory: infrastructure
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init
+        working-directory: infrastructure
+        run: terraform init
+
+      - name: Terraform validate
+        working-directory: infrastructure
+        run: terraform validate
+
+      - name: Terraform apply
+        working-directory: infrastructure
+        run: terraform apply -auto-approve
+
+      - name: Terraform output
+        working-directory: infrastructure
+        run: terraform output
