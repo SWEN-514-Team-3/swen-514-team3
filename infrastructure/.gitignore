@@ -2,5 +2,4 @@
 *.tfstate
 *.tfstate.*
 crash.log
-tfplan
 *.tfvars
