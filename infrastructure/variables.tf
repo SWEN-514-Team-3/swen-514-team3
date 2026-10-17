@@ -9,3 +9,9 @@ variable "project_name" {
   type        = string
   default     = "meeting-momentum"
 }
+
+variable "frontend_bucket_name" {
+  description = "Globally unique S3 bucket name. Change if already taken."
+  type        = string
+  default     = "meeting-momentum-frontend-bucket"
+}
