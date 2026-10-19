@@ -82,8 +82,8 @@ resource "aws_lambda_function" "api" {
   runtime       = "python3.12"
   handler       = "handler.lambda_handler"
 
-  filename         = "${path.module}/lambda.zip"
-  source_code_hash = filebase64sha256("${path.module}/lambda.zip")
+  filename         = data.archive_file.api.output_path
+  source_code_hash = data.archive_file.api.output_base64sha256
 
   timeout     = 15
   memory_size = 256
@@ -91,7 +91,7 @@ resource "aws_lambda_function" "api" {
   # Required for access to the private PostgreSQL database
   vpc_config {
     subnet_ids         = module.database.subnet_ids
-    security_group_ids = [module.database.lambda_security_group_id]
+    security_group_ids = [module.networking.lambda_security_group_id]
   }
 
   environment {
@@ -177,3 +177,9 @@ resource "aws_lambda_permission" "api_gateway" {
 
 
 
+
+data "archive_file" "api" {
+  type        = "zip"
+  source_file = "${path.module}/../lambda/handler.py"
+  output_path = "${path.module}/.terraform/api-lambda.zip"
+}
