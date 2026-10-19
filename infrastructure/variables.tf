@@ -9,3 +9,9 @@ variable "project_name" {
   type        = string
   default     = "meeting-momentum"
 }
+
+variable "lambda_permissions_boundary_arn" {
+  description = "Course-required IAM permissions boundary for the Lambda execution role, if applicable."
+  type        = string
+  default     = null
+}
