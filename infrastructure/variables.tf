@@ -22,3 +22,9 @@ variable "lambda_permissions_boundary_arn" {
   type        = string
   default     = null
 }
+
+variable "reminder_email" {
+  description = "Optional SNS reminder email; leave unset for initial deployment."
+  type        = string
+  default     = null
+}
