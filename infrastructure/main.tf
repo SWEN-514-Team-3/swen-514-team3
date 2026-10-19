@@ -24,7 +24,7 @@ resource "aws_iam_role" "lambda" {
 
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
   role       = aws_iam_role.lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCExecutionRole"
 }
 
 # Allow Lambda to read the database credentials from Secrets Manager
@@ -66,7 +66,6 @@ resource "aws_lambda_function" "api" {
       DB_HOST       = module.database.db_endpoint
       DB_NAME       = "meetingmomentum"
       DB_SECRET_ARN = module.database.db_secret_arn
-      AWS_REGION    = var.aws_region
     }
   }
 
@@ -83,7 +82,7 @@ resource "aws_apigatewayv2_api" "http" {
 
   cors_configuration {
     allow_origins = [
-      "http://${module.frontend.website_url}"
+      module.frontend.website_url
     ]
     allow_methods = [
       "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
@@ -118,6 +117,7 @@ resource "aws_apigatewayv2_route" "meetings" {
     "GET /meetings/{id}",
     "PUT /meetings/{id}",
     "DELETE /meetings/{id}"
+    "POST /ai-sample"
   ])
 
   api_id    = aws_apigatewayv2_api.http.id
