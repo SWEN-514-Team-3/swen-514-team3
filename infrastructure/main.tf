@@ -34,6 +34,7 @@ resource "aws_s3_object" "auth_config" {
   content_type  = "application/json"
   cache_control = "no-store"
   content = jsonencode({
+    api_url      = aws_apigatewayv2_api.http.api_endpoint
     authority    = module.authentication.issuer
     domain       = module.authentication.domain
     client_id    = module.authentication.client_id
@@ -176,7 +177,7 @@ resource "aws_lambda_permission" "api_gateway" {
 
 resource "aws_iam_role_policy" "lambda_manage_reminders" {
   name = "${var.project_name}-manage-reminders"
-  role = aws_iam_role.lambda_role.id
+  role = aws_iam_role.lambda.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -194,7 +195,7 @@ resource "aws_iam_role_policy" "lambda_manage_reminders" {
       {
         Effect   = "Allow"
         Action   = ["iam:PassRole"]
-        Resource = aws_iam_role.scheduler_sns_role.arn
+        Resource = module.notifications.scheduler_sns_role_arn
         Condition = {
           StringEquals = {
             "iam:PassedToService" = "scheduler.amazonaws.com"
@@ -216,4 +217,10 @@ data "archive_file" "api" {
   type        = "zip"
   source_file = "${path.module}/../lambda/handler.py"
   output_path = "${path.module}/.terraform/api-lambda.zip"
+}
+
+module "notifications" {
+  source         = "./modules/notifications"
+  project_name   = var.project_name
+  reminder_email = var.reminder_email
 }
