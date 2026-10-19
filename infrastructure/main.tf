@@ -87,7 +87,7 @@ resource "aws_lambda_function" "api" {
   filename         = data.archive_file.api.output_path
   source_code_hash = data.archive_file.api.output_base64sha256
 
-  timeout     = 15
+  timeout     = 25
   memory_size = 256
 
   # Required for access to the private PostgreSQL database
@@ -98,15 +98,18 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      DB_HOST       = module.database.db_endpoint
-      DB_NAME       = "meetingmomentum"
-      DB_SECRET_ARN = module.database.db_secret_arn
+      BEDROCK_MODEL_ID = var.bedrock_model_id
+      DB_HOST          = module.database.db_endpoint
+      DB_NAME          = "meetingmomentum"
+      DB_SECRET_ARN    = module.database.db_secret_arn
     }
   }
 
   depends_on = [
     aws_iam_role_policy_attachment.lambda_logs,
-    aws_iam_role_policy.lambda_db_secret
+    aws_iam_role_policy.lambda_db_secret,
+    aws_iam_role_policy.lambda_bedrock,
+    aws_vpc_endpoint.bedrock
   ]
 }
 
@@ -151,8 +154,7 @@ resource "aws_apigatewayv2_route" "meetings" {
     "POST /meetings",
     "GET /meetings/{id}",
     "PUT /meetings/{id}",
-    "DELETE /meetings/{id}",
-    "POST /ai-sample"
+    "DELETE /meetings/{id}"
   ])
 
   api_id    = aws_apigatewayv2_api.http.id
