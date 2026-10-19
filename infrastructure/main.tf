@@ -24,7 +24,7 @@ resource "aws_iam_role" "lambda" {
 
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
   role       = aws_iam_role.lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 # Allow Lambda to read the database credentials from Secrets Manager
@@ -116,7 +116,7 @@ resource "aws_apigatewayv2_route" "meetings" {
     "POST /meetings",
     "GET /meetings/{id}",
     "PUT /meetings/{id}",
-    "DELETE /meetings/{id}"
+    "DELETE /meetings/{id}",
     "POST /ai-sample"
   ])
 
