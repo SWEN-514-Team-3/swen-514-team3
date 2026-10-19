@@ -14,4 +14,11 @@ variable "frontend_bucket_name" {
   description = "Globally unique S3 bucket name. Change if already taken."
   type        = string
   default     = "meeting-momentum-frontend-bucket"
+
+}
+
+variable "lambda_permissions_boundary_arn" {
+  description = "Course-required IAM permissions boundary for the Lambda execution role, if applicable."
+  type        = string
+  default     = null
 }

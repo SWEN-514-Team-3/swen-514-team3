@@ -15,5 +15,5 @@ output "lambda_security_group_id" {
 
 output "subnet_ids" {
   description = "Subnets the database lives in."
-  value       = [aws_subnet.a.id, aws_subnet.b.id]
+  value       = var.subnet_ids
 }
