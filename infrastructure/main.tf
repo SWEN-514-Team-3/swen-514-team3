@@ -173,6 +173,39 @@ resource "aws_lambda_permission" "api_gateway" {
 }
 
 
+resource "aws_iam_role_policy" "lambda_manage_reminders" {
+  name = "${var.project_name}-manage-reminders"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "scheduler:CreateSchedule",
+          "scheduler:UpdateSchedule",
+          "scheduler:DeleteSchedule",
+          "scheduler:GetSchedule"
+        ]
+        Resource = "arn:aws:scheduler:${var.aws_region}:*:schedule/default/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["iam:PassRole"]
+        Resource = aws_iam_role.scheduler_sns_role.arn
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "scheduler.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+}
+
+
+
 
 
 
