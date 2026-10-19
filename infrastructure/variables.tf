@@ -13,7 +13,7 @@ variable "project_name" {
 variable "frontend_bucket_name" {
   description = "Globally unique S3 bucket name. Change if already taken."
   type        = string
-  default     = "meeting-momentum-frontend-bucket"
+  default     = "meeting-momentum-frontend-930783431153"
 
 }
 
