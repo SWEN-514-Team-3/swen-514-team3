@@ -34,6 +34,7 @@ resource "aws_s3_object" "auth_config" {
   content_type  = "application/json"
   cache_control = "no-store"
   content = jsonencode({
+    api_url      = aws_apigatewayv2_api.http.api_endpoint
     authority    = module.authentication.issuer
     domain       = module.authentication.domain
     client_id    = module.authentication.client_id
