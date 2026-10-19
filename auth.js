@@ -43,6 +43,11 @@
         jwks_uri: config.authority + "/.well-known/jwks.json"
       }
     });
+    window.getAccessToken = async function () {
+      const user = await manager.getUser();
+      if (!user || user.expired) throw new Error("Please sign in again.");
+      return user.access_token;
+    };
     manager.events.addAccessTokenExpired(async function () {
       render(null);
       await manager.removeUser();
