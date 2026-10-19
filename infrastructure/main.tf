@@ -1,5 +1,6 @@
 module "frontend" {
-  source = "./modules/frontend"
+  source      = "./modules/frontend"
+  bucket_name = var.frontend_bucket_name
 }
 
 module "networking" {
