@@ -1,8 +1,7 @@
-data "aws_caller_identity" "deployment" {}
-
 module "frontend" {
-  source      = "./modules/frontend"
-  bucket_name = coalesce(var.frontend_bucket_name, "${var.project_name}-frontend-${data.aws_caller_identity.deployment.account_id}")
+  source        = "./modules/frontend"
+  bucket_name   = var.frontend_bucket_name
+  bucket_prefix = "${var.project_name}-frontend-"
 }
 
 module "networking" {

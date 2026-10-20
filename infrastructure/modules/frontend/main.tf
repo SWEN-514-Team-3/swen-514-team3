@@ -1,5 +1,6 @@
 resource "aws_s3_bucket" "site" {
   bucket        = var.bucket_name
+  bucket_prefix = var.bucket_name == null ? var.bucket_prefix : null
   force_destroy = true
 }
 resource "aws_s3_bucket_public_access_block" "site" {
@@ -10,7 +11,7 @@ resource "aws_s3_bucket_public_access_block" "site" {
   restrict_public_buckets = true
 }
 resource "aws_cloudfront_origin_access_control" "site" {
-  name                              = var.bucket_name
+  name                              = aws_s3_bucket.site.id
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"

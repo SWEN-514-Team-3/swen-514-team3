@@ -11,7 +11,7 @@ variable "project_name" {
 }
 
 variable "frontend_bucket_name" {
-  description = "Optional frontend bucket name override. Defaults to project name plus the authenticated AWS account ID."
+  description = "Optional exact frontend bucket name. Leave null to let Terraform generate a unique suffix."
   type        = string
   default     = null
 
