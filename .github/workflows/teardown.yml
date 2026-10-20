@@ -11,6 +11,11 @@ on:
         description: 'Type "destroy" to delete this environment'
         type: string
         required: true
+      recover_api_lambda:
+        description: 'Recovery only: existing API Lambda name missing from this state (otherwise leave empty)'
+        type: string
+        default: ''
+        required: false
 
 permissions:
   contents: read
@@ -65,6 +70,26 @@ jobs:
           -backend-config="bucket=$TF_STATE_BUCKET"
           -backend-config="key=$TF_STATE_KEY"
           -backend-config="region=$AWS_REGION"
+
+      - name: Recover untracked API Lambda into state
+        if: inputs.recover_api_lambda != ''
+        working-directory: infrastructure
+        env:
+          RECOVER_API_LAMBDA: ${{ inputs.recover_api_lambda }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity --query '{Account:Account,Arn:Arn}'
+          aws lambda get-function-configuration \
+            --function-name "$RECOVER_API_LAMBDA" \
+            --query '{Name:FunctionName,Arn:FunctionArn,VpcConfig:VpcConfig}'
+          terraform state pull > "$RUNNER_TEMP/state-before-lambda-recovery.json"
+          terraform state list > "$RUNNER_TEMP/recovery-state-addresses.txt"
+          if grep -Fxq 'aws_lambda_function.api' "$RUNNER_TEMP/recovery-state-addresses.txt"; then
+            echo 'API Lambda is already tracked; refusing an unnecessary recovery import.'
+            exit 1
+          fi
+          terraform import -input=false aws_lambda_function.api "$RECOVER_API_LAMBDA"
 
       - name: Terraform destroy
         working-directory: infrastructure
