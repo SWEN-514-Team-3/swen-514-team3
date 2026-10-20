@@ -11,9 +11,9 @@ variable "project_name" {
 }
 
 variable "frontend_bucket_name" {
-  description = "Globally unique S3 bucket name. Change if already taken."
+  description = "Optional frontend bucket name override. Defaults to project name plus the authenticated AWS account ID."
   type        = string
-  default     = "meeting-momentum-frontend-930783431153"
+  default     = null
 
 }
 
