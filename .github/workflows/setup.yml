@@ -64,7 +64,14 @@ jobs:
       - name: Terraform fmt
         working-directory: infrastructure
         run: terraform fmt -check -recursive
+      - name: Who am I
+        run: |
+          aws sts get-caller-identity
+          aws s3api head-bucket --bucket "$TF_STATE_BUCKET"
+          aws s3 ls "s3://$TF_STATE_BUCKET/state/AazeemVS/"
 
+      - name: Terraform Init
+        run: terraform init -input=false ...
       - name: Terraform init
         working-directory: infrastructure
         run: >-
