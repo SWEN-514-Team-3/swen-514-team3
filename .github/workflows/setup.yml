@@ -65,12 +65,6 @@ jobs:
         working-directory: infrastructure
         run: terraform fmt -check -recursive
 
-      - name: Terraform Init
-        run: |
-          terraform init -input=false \
-            -backend-config="bucket=$TF_STATE_BUCKET" \
-            -backend-config="key=$TF_STATE_KEY" \
-            -backend-config="region=$AWS_REGION"
       - name: Terraform init
         working-directory: infrastructure
         run: >-
@@ -91,45 +85,8 @@ jobs:
         if: inputs.action == 'apply'
         working-directory: infrastructure
         run: terraform apply -input=false tfplan
-      - name: Set up Node
-        if: inputs.action == 'apply'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
 
-      - name: Build frontend
-        if: inputs.action == 'apply'
-        working-directory: frontend
-        run: |
-          npm ci
-          npm run build
-
-      - name: Upload frontend to S3
-        if: inputs.action == 'apply'
-        run: |
-          BUCKET=$(terraform -chdir=infrastructure output -raw frontend_bucket)
-          aws s3 sync frontend/dist "s3://$BUCKET" --delete
-          
       - name: Terraform output
         if: inputs.action == 'apply'
         working-directory: infrastructure
         run: terraform output
-
-      - name: Set up Node
-        if: inputs.action == 'apply'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Build frontend
-        if: inputs.action == 'apply'
-        working-directory: frontend
-        run: |
-          npm ci
-          npm run build
-
-      - name: Upload frontend to S3
-        if: inputs.action == 'apply'
-        run: |
-          BUCKET=$(terraform -chdir=infrastructure output -raw frontend_bucket_name)
-          aws s3 sync frontend/dist "s3://$BUCKET" --delete
