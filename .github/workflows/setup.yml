@@ -96,3 +96,22 @@ jobs:
         if: inputs.action == 'apply'
         working-directory: infrastructure
         run: terraform output
+
+      - name: Set up Node
+        if: inputs.action == 'apply'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build frontend
+        if: inputs.action == 'apply'
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload frontend to S3
+        if: inputs.action == 'apply'
+        run: |
+          BUCKET=$(terraform -chdir=infrastructure output -raw frontend_bucket_name)
+          aws s3 sync frontend/dist "s3://$BUCKET" --delete
