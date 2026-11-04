@@ -77,6 +77,9 @@ jobs:
         working-directory: infrastructure
         run: terraform validate
 
+      - name: Build database setup package
+        run: bash lambda/db_init/build.sh
+
       - name: Terraform plan
         working-directory: infrastructure
         run: terraform plan -input=false -out=tfplan
@@ -90,3 +93,29 @@ jobs:
         if: inputs.action == 'apply'
         working-directory: infrastructure
         run: terraform output
+
+      # The database is private, so seed it through the db-init Lambda (it runs
+      # inside the VPC). The login is read here and passed in the invoke call.
+      - name: Create tables and load sample data
+        if: inputs.action == 'apply'
+        working-directory: infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+          FUNCTION_NAME="$(terraform output -raw db_init_function_name)"
+          SECRET_ARN="$(terraform output -raw db_secret_arn)"
+          SECRET="$(aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" --query SecretString --output text)"
+          echo "::add-mask::$(jq -r .password <<< "$SECRET")"
+          jq -c '{username, password}' <<< "$SECRET" > "$RUNNER_TEMP/db-login.json"
+          aws lambda invoke \
+            --function-name "$FUNCTION_NAME" \
+            --cli-binary-format raw-in-base64-out \
+            --cli-read-timeout 150 \
+            --payload "file://$RUNNER_TEMP/db-login.json" \
+            "$RUNNER_TEMP/db-init-result.json" > "$RUNNER_TEMP/db-init-meta.json"
+          rm -f "$RUNNER_TEMP/db-login.json"
+          cat "$RUNNER_TEMP/db-init-result.json"; echo
+          if jq -e '.FunctionError' "$RUNNER_TEMP/db-init-meta.json" > /dev/null; then
+            echo 'Database setup failed'
+            exit 1
+          fi

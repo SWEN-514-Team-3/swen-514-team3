@@ -91,6 +91,9 @@ jobs:
           fi
           terraform import -input=false aws_lambda_function.api "$RECOVER_API_LAMBDA"
 
+      - name: Build database setup package
+        run: bash lambda/db_init/build.sh
+
       - name: Terraform destroy
         working-directory: infrastructure
         run: terraform destroy -input=false -auto-approve
