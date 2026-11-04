@@ -11,15 +11,15 @@ function requestAPI(path, options) {
   }
   return apiConfiguration.then(async function (config) {
     if (!config.api_url) throw new Error("API is not configured. Redeploy the application configuration.");
-    if (path === "/ai-sample") {
-      if (!window.getAccessToken) throw new Error("Please sign in before generating a draft.");
-      options = options || {};
-      options.headers = Object.assign({}, options.headers, {
-        Authorization: "Bearer " + await window.getAccessToken()
-      });
-    }
+    // Every API request carries the signed-in user's Cognito token.
+    if (!window.getAccessToken) throw new Error("Please sign in first.");
+    options = options || {};
+    options.headers = Object.assign({}, options.headers, {
+      Authorization: "Bearer " + await window.getAccessToken()
+    });
     return fetch(config.api_url.replace(/\/$/, "") + path, options);
   }).then(function (response) {
+    if (response.status === 401) throw new Error("Your session expired. Please sign in again.");
     return response.json().then(function (data) {
       if (!response.ok) throw new Error(data.error || "Request failed (" + response.status + ").");
       return data;
