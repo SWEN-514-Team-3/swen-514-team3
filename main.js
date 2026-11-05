@@ -66,7 +66,10 @@ async function runTranscribe() {
         status.textContent = "Transcribing audio file...";
         var data = await requestAPI("/transcribe", {
             method: "POST",
-            headers: { "Content-Type": "application/octet-stream" },
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-file-name": file.name,
+            },
             body: arrayBuffer,
         });
         result.value = data.transcript;
