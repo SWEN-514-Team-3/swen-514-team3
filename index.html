@@ -33,6 +33,12 @@
           <tbody id="meetingsBody"></tbody>
         </table>
       </div>
+      <form onsubmit="createMeeting(event)" class="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+        <label class="text-sm">Title<br><input id="meetingTitle" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <label class="text-sm">Date<br><input id="meetingDate" type="date" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Create meeting</button>
+      </form>
+      <p id="meetingFormError" class="mt-2 text-sm text-red-600"></p>
     </div>
 
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="actions">
@@ -51,6 +57,14 @@
           <tbody id="actionsBody"></tbody>
         </table>
       </div>
+      <form onsubmit="addActionItem(event)" class="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+        <label class="text-sm">Meeting<br><select id="itemMeeting" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></select></label>
+        <label class="text-sm">Description<br><input id="itemDescription" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <label class="text-sm">Assign to (email)<br><input id="itemAssignee" type="email" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <label class="text-sm">Due date<br><input id="itemDueDate" type="date" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Add action item</button>
+      </form>
+      <p id="itemFormError" class="mt-2 text-sm text-red-600"></p>
     </div>
 
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="backend">

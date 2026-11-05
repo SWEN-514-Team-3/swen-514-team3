@@ -125,6 +125,16 @@ function showMeetings(meetings) {
     body.appendChild(row);
   });
   setMessage("meetingsStatus", meetings.length === 0 ? "No meetings yet." : "");
+
+  // The "Add action item" form picks its meeting from this dropdown
+  var select = document.getElementById("itemMeeting");
+  select.textContent = "";
+  meetings.forEach(function (meeting) {
+    var option = document.createElement("option");
+    option.value = meeting.id;
+    option.textContent = meeting.title;
+    select.appendChild(option);
+  });
 }
 
 function showActionItems() {
@@ -143,7 +153,7 @@ function showActionItems() {
     row.className = "border-b border-slate-100";
     addCell(row, item.description);
     addCell(row, item.due_date.slice(0, 10));
-    addCell(row, GROUP_NAMES[group]);
+    addStatusDropdown(row, item);
     body.appendChild(row);
     count++;
   });
@@ -179,6 +189,74 @@ function clearLists() {
   document.getElementById("actionsBody").textContent = "";
   setMessage("meetingsStatus", "");
   setMessage("actionsStatus", "");
+}
+
+// ---------- Create meeting, add action item, change status ----------
+
+// Sends a change to the API, then reloads the lists.
+// Shows an error if it fails. Resolves to true if it worked, false if not.
+function saveChange(path, method, data, errorId) {
+  setMessage(errorId, "");
+  return requestAPI(path, {
+    method: method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  })
+    .then(function () {
+      loadLists();
+      return true;
+    })
+    .catch(function (error) {
+      setMessage(errorId, "Could not save: " + error.message);
+      return false;
+    });
+}
+
+function createMeeting(event) {
+  event.preventDefault();
+  var form = event.target;
+  saveChange("/meetings", "POST", {
+    title: document.getElementById("meetingTitle").value,
+    meeting_date: document.getElementById("meetingDate").value
+  }, "meetingFormError").then(function (saved) {
+    if (saved) form.reset();
+  });
+}
+
+function addActionItem(event) {
+  event.preventDefault();
+  var form = event.target;
+  saveChange("/action-items", "POST", {
+    meeting_id: document.getElementById("itemMeeting").value,
+    description: document.getElementById("itemDescription").value,
+    assignee_email: document.getElementById("itemAssignee").value,
+    due_date: document.getElementById("itemDueDate").value
+  }, "itemFormError").then(function (saved) {
+    if (saved) form.reset();
+  });
+}
+
+// The Status cell is a dropdown, so a team member can change their own item
+function addStatusDropdown(row, item) {
+  var cell = document.createElement("td");
+  cell.className = "px-3 py-2";
+  var select = document.createElement("select");
+  select.className = "rounded border border-slate-300 px-2 py-1";
+  [["open", "Open"], ["in_progress", "In progress"], ["completed", "Completed"]].forEach(function (choice) {
+    var option = document.createElement("option");
+    option.value = choice[0];
+    option.textContent = choice[1];
+    option.selected = choice[0] === item.status;
+    select.appendChild(option);
+  });
+  select.onchange = function () {
+    saveChange("/action-items/" + item.id, "PATCH", { status: select.value }, "actionsStatus")
+      .then(function (saved) {
+        if (!saved) select.value = item.status; // put the dropdown back
+      });
+  };
+  cell.appendChild(select);
+  row.appendChild(cell);
 }
 
 // auth.js calls these when the user signs in or out
