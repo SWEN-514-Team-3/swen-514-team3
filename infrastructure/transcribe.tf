@@ -3,7 +3,7 @@ resource "aws_s3_bucket" "recordings_bucket" {
   bucket = "audio-drop-bucket"
 
   tags = {
-    Name = "MyBucket"
+    Name        = "MyBucket"
     Environment = "Dev"
   }
 }
@@ -11,8 +11,8 @@ resource "aws_s3_bucket" "recordings_bucket" {
 # folder recordings get dropped into
 resource "aws_s3_object" "folder1" {
   bucket = aws_s3_bucket.recordings_bucket.id
-  acl = "private"
-  key = "recordings/"
+  acl    = "private"
+  key    = "recordings/"
 }
 
 # Combined iam policies for both transcribe & s3
@@ -30,15 +30,15 @@ resource "aws_iam_role_policy" "lambda_transcribe" {
         "transcribe:ListTranscriptionJobs"
       ]
       Resource = "*"
-    },
-    {
+      },
+      {
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:PutObject"
         ]
         Resource = "${aws_s3_bucket.recordings_bucket.arn}/*"
-    }
+      }
     ]
   })
 }
@@ -83,7 +83,7 @@ resource "aws_vpc_endpoint" "transcribe" {
         "transcribe:GetTranscriptionJob",
         "transcribe:ListTranscriptionJobs"
       ]
-      Resource  = "*"
+      Resource = "*"
       Condition = {
         ArnEquals = { "aws:PrincipalArn" = aws_iam_role.lambda.arn }
       }

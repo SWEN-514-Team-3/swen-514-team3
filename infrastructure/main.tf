@@ -117,18 +117,18 @@ resource "aws_lambda_function" "api" {
 # transcribe api lambda
 resource "aws_lambda_function" "transcribe_api" {
   function_name = "${var.project_name}-transcribe_api"
-  role = aws_iam_role.lambda.arn
-  handler = "transcribe_handler.lambda_handler"
-  runtime = "python3.12"
+  role          = aws_iam_role.lambda.arn
+  handler       = "transcribe_handler.lambda_handler"
+  runtime       = "python3.12"
 
-  filename = data.archive_file.api_transcribe.output_path
+  filename         = data.archive_file.api_transcribe.output_path
   source_code_hash = data.archive_file.api_transcribe.output_base64sha256
 
   timeout     = 25
   memory_size = 256
 
   vpc_config {
-    subnet_ids = module.networking.private_subnet_ids
+    subnet_ids         = module.networking.private_subnet_ids
     security_group_ids = [module.networking.lambda_security_group_id]
   }
 
@@ -138,10 +138,10 @@ resource "aws_lambda_function" "transcribe_api" {
     }
   }
 
-  depends_on = [ 
+  depends_on = [
     aws_iam_role_policy_attachment.lambda_logs,
     aws_iam_role_policy.lambda_transcribe,
-    aws_vpc_endpoint.transcribe 
+    aws_vpc_endpoint.transcribe
   ]
 }
 
@@ -265,9 +265,9 @@ resource "aws_iam_role_policy" "lambda_manage_reminders" {
 }
 
 data "archive_file" "api_transcribe" {
-    type = "zip"
-    source_file = "${path.module}/../lambda/transcribe_handler.py"
-    output_path = "${path.module}/.terraform/transcribe-api-lambda.zip"
+  type        = "zip"
+  source_file = "${path.module}/../lambda/transcribe_handler.py"
+  output_path = "${path.module}/.terraform/transcribe-api-lambda.zip"
 }
 
 data "archive_file" "api" {
