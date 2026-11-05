@@ -1,85 +1,140 @@
 var apiConfiguration;
 
 function requestAPI(path, options) {
-  if (!apiConfiguration) {
-    apiConfiguration = fetch("auth-config.json", { cache: "no-store" })
-      .then(function (response) {
-        if (!response.ok) throw new Error("Unable to load application configuration.");
-        return response.json();
-      })
-      .catch(function (error) { apiConfiguration = null; throw error; });
-  }
-  return apiConfiguration.then(async function (config) {
-    if (!config.api_url) throw new Error("API is not configured. Redeploy the application configuration.");
-    if (path === "/ai-sample") {
-      if (!window.getAccessToken) throw new Error("Please sign in before generating a draft.");
-      options = options || {};
-      options.headers = Object.assign({}, options.headers, {
-        Authorization: "Bearer " + await window.getAccessToken()
-      });
+    if (!apiConfiguration) {
+        apiConfiguration = fetch("auth-config.json", { cache: "no-store" })
+            .then(function (response) {
+                if (!response.ok)
+                    throw new Error(
+                        "Unable to load application configuration.",
+                    );
+                return response.json();
+            })
+            .catch(function (error) {
+                apiConfiguration = null;
+                throw error;
+            });
     }
-    return fetch(config.api_url.replace(/\/$/, "") + path, options);
-  }).then(function (response) {
-    return response.json().then(function (data) {
-      if (!response.ok) throw new Error(data.error || "Request failed (" + response.status + ").");
-      return data;
-    });
-  });
+    return apiConfiguration
+        .then(async function (config) {
+            if (!config.api_url)
+                throw new Error(
+                    "API is not configured. Redeploy the application configuration.",
+                );
+            if (path === "/ai-sample") {
+                if (!window.getAccessToken)
+                    throw new Error(
+                        "Please sign in before generating a draft.",
+                    );
+                options = options || {};
+                options.headers = Object.assign({}, options.headers, {
+                    Authorization: "Bearer " + (await window.getAccessToken()),
+                });
+            }
+            return fetch(config.api_url.replace(/\/$/, "") + path, options);
+        })
+        .then(function (response) {
+            return response.json().then(function (data) {
+                if (!response.ok)
+                    throw new Error(
+                        data.error ||
+                            "Request failed (" + response.status + ").",
+                    );
+                return data;
+            });
+        });
 }
 
-// Implement functionality for uploading a file to website
-function runTranscribe() {
-  var file = document.getElementById("audioInput");
-  var button = document.getElementById("runTranscribe");
-  var status = document.getElementById("transcribeStatus");
-  var result = document.getElementById("transcribeResult");
+async function runTranscribe() {
+    var fileInput = document.getElementById("audioInput");
+    var button = document.getElementById("runTranscribe");
+    var status = document.getElementById("transcribeStatus");
+    var result = document.getElementById("transcribeResult");
+
+    var file = fileInput.files[0];
+    if (!file) {
+        status.className = "mt-3 text-sm text-red-600";
+        status.textContent = "Please select an audio file first.";
+        return;
+    }
+    button.disabled = true;
+    status.className = "mt-3 text-sm text-blue-600";
+    status.textContent = "Reading audio file...";
+
+    try {
+        var arrayBuffer = await file.arrayBuffer();
+        status.textContent = "Transcribing audio file...";
+        var data = await requestAPI("/transcribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: arrayBuffer,
+        });
+        result.value = data.transcript;
+        status.className = "mt-3 text-sm text-green-600";
+        status.textContent = "Transcription completed.";
+    } catch (error) {
+        status.className = "mt-3 text-sm text-red-600";
+        status.textContent = "Error: " + error.message;
+    } finally {
+        button.disabled = false;
+    }
 }
 
 function testBackend() {
-  var result = document.getElementById("backendResult");
-  result.textContent = "Loading...";
+    var result = document.getElementById("backendResult");
+    result.textContent = "Loading...";
 
-  requestAPI("/health")
-    .then(function (data) { result.textContent = JSON.stringify(data, null, 2); })
-    .catch(function (error) { result.textContent = "Error: " + error; });
+    requestAPI("/health")
+        .then(function (data) {
+            result.textContent = JSON.stringify(data, null, 2);
+        })
+        .catch(function (error) {
+            result.textContent = "Error: " + error;
+        });
 }
 
 async function runAI() {
-  var result = document.getElementById("aiResult");
-  var button = document.getElementById("runAI");
-  var text = document.getElementById("aiInput").value;
-  var status = document.getElementById("aiStatus");
-  status.className = "mt-3 text-sm";
-  result.value = "";
-  if (!text.trim()) {
-    status.className = "mt-3 text-sm text-red-600";
-    status.textContent = "Please enter meeting text first.";
-    return;
-  }
-  if (!document.getElementById("aiApproved").checked) {
-    status.className = "mt-3 text-sm text-red-600";
-    status.textContent = "Review and approve the source text first."; return;
-  }
-  button.disabled = true;
-  status.textContent = "Generating a draft...";
-  try {
-    var data = await requestAPI("/ai-sample", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: text, approved: true })
-    });
-    result.value = data.result;
-    status.textContent = "Draft generated by " + data.modelId + ". Review and correct it below.";
-  } catch (error) {
-    status.className = "mt-3 text-sm text-red-600";
-    status.textContent = error.message;
-  }
-  finally { button.disabled = false; }
+    var result = document.getElementById("aiResult");
+    var button = document.getElementById("runAI");
+    var text = document.getElementById("aiInput").value;
+    var status = document.getElementById("aiStatus");
+    status.className = "mt-3 text-sm";
+    result.value = "";
+    if (!text.trim()) {
+        status.className = "mt-3 text-sm text-red-600";
+        status.textContent = "Please enter meeting text first.";
+        return;
+    }
+    if (!document.getElementById("aiApproved").checked) {
+        status.className = "mt-3 text-sm text-red-600";
+        status.textContent = "Review and approve the source text first.";
+        return;
+    }
+    button.disabled = true;
+    status.textContent = "Generating a draft...";
+    try {
+        var data = await requestAPI("/ai-sample", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: text, approved: true }),
+        });
+        result.value = data.result;
+        status.textContent =
+            "Draft generated by " +
+            data.modelId +
+            ". Review and correct it below.";
+    } catch (error) {
+        status.className = "mt-3 text-sm text-red-600";
+        status.textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
 }
 
 document.getElementById("aiInput").addEventListener("input", function () {
-  document.getElementById("aiStatus").className = "mt-3 text-sm";
-  document.getElementById("aiApproved").checked = false;
-  document.getElementById("aiResult").value = "";
-  document.getElementById("aiStatus").textContent = "Review the edited source before generating another draft.";
+    document.getElementById("aiStatus").className = "mt-3 text-sm";
+    document.getElementById("aiApproved").checked = false;
+    document.getElementById("aiResult").value = "";
+    document.getElementById("aiStatus").textContent =
+        "Review the edited source before generating another draft.";
 });
