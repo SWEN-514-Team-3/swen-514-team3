@@ -163,6 +163,13 @@ resource "aws_apigatewayv2_route" "meetings" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Action item routes
+resource "aws_apigatewayv2_route" "action_items" {
+  api_id    = aws_apigatewayv2_api.http.id
+  route_key = "GET /action-items"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.http.id
   name        = "$default"
@@ -208,12 +215,6 @@ resource "aws_iam_role_policy" "lambda_manage_reminders" {
     ]
   })
 }
-
-
-
-
-
-
 
 
 data "archive_file" "api" {
