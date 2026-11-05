@@ -116,7 +116,7 @@ resource "aws_lambda_function" "api" {
 
 # vpc for s3
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id            = aws_vpc.app.id
+  vpc_id            = module.networking.vpc_id
   service_name      = "com.amazonaws.us-east-1.s3"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = module.networking.private_route_table_ids
