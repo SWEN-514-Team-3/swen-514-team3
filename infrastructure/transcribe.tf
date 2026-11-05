@@ -77,7 +77,7 @@ resource "aws_vpc_endpoint" "transcribe" {
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = "*"
+      Principal = { AWS = aws_iam_role.lambda.arn }
       Action = [
         "transcribe:StartTranscriptionJob",
         "transcribe:GetTranscriptionJob",

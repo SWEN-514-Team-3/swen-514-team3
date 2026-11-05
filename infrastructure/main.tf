@@ -114,6 +114,14 @@ resource "aws_lambda_function" "api" {
   ]
 }
 
+# vpc for s3
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = aws_vpc.app.id
+  service_name = "com.amazonaws.us-east-1.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = module.networking.private_route_table_ids
+}
+
 # transcribe api lambda
 resource "aws_lambda_function" "transcribe_api" {
   function_name = "${var.project_name}-transcribe_api"
@@ -141,7 +149,8 @@ resource "aws_lambda_function" "transcribe_api" {
   depends_on = [
     aws_iam_role_policy_attachment.lambda_logs,
     aws_iam_role_policy.lambda_transcribe,
-    aws_vpc_endpoint.transcribe
+    aws_vpc_endpoint.transcribe,
+    aws_vpc_endpoint.s3
   ]
 }
 
