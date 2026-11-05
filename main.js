@@ -27,6 +27,11 @@ function requestAPI(path, options) {
   });
 }
 
+// Implement functionality for uploading a file to website
+function runTranscribe() {
+  return;
+}
+
 function testBackend() {
   var result = document.getElementById("backendResult");
   result.textContent = "Loading...";
