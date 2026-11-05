@@ -158,16 +158,20 @@ resource "aws_apigatewayv2_route" "meetings" {
     "DELETE /meetings/{id}"
   ])
 
-  api_id    = aws_apigatewayv2_api.http.id
-  route_key = each.value
-  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = each.value
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
 # Action item routes
 resource "aws_apigatewayv2_route" "action_items" {
-  api_id    = aws_apigatewayv2_api.http.id
-  route_key = "GET /action-items"
-  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "GET /action-items"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
 resource "aws_apigatewayv2_stage" "default" {
@@ -217,9 +221,11 @@ resource "aws_iam_role_policy" "lambda_manage_reminders" {
 }
 
 
+# The package is built by lambda/db_init/build.sh (handler plus the pg8000
+# database driver). Run that script first if you run terraform on your own machine.
 data "archive_file" "api" {
   type        = "zip"
-  source_file = "${path.module}/../lambda/handler.py"
+  source_dir  = "${path.module}/../build/api"
   output_path = "${path.module}/.terraform/api-lambda.zip"
 }
 
