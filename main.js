@@ -21,7 +21,7 @@ function requestAPI(path, options) {
                 throw new Error(
                     "API is not configured. Redeploy the application configuration.",
                 );
-            if (path === "/ai-sample") {
+            if (path === "/ai-sample" || path === "/transcribe") {
                 if (!window.getAccessToken)
                     throw new Error(
                         "Please sign in before generating a draft.",
