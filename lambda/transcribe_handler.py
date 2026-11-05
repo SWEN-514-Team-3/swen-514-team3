@@ -53,8 +53,10 @@ def lambda_handler(event, context):
         # upload to s3 bucket
         try:
             s3_key = f"uploads/{uuid.uuid4().hex[:8]}-{filename}"
+            print(f"Uploading file to S3: {s3_key}")
+
             s3.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=file_bytes)
-            print(f"Uploaded file to S3: {s3_key}")
+            print("Upload successful.")
 
             # start transcription job
             job_name = f"transcribe-{filename.replace('.', '-')}-{uuid.uuid4().hex[:8]}"
@@ -66,6 +68,7 @@ def lambda_handler(event, context):
                 OutputBucketName=BUCKET_NAME,
                 OutputKey=f"transcripts/{job_name}.json"
             )
+            print("Transcription job started successfully.")
 
             return response(200, {
                 "status": "completed",
