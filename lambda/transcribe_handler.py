@@ -28,9 +28,12 @@ def lambda_handler(event, context):
         if not claims.get("sub"):
             return response(401, {"error": "Please sign in before starting a transcription."})
 
+        # generate uuid
+        unique_id = uuid.uuid4().hex[:8]
+
         # get file name from query params or generate a unique name
         query_params = event.get("queryStringParameters") or {}
-        filename = query_params.get("filename", f"audio-{uuid.uuid4().hex[:8]}.m4a")
+        filename = query_params.get("filename", f"audio-{unique_id}.m4a")
 
         print(f"Target file name for upload: {filename}")
 
@@ -52,14 +55,14 @@ def lambda_handler(event, context):
 
         # upload to s3 bucket
         try:
-            s3_key = f"uploads/{uuid.uuid4().hex[:8]}-{filename}"
+            s3_key = f"uploads/{unique_id}-{filename}"
             print(f"Uploading file to S3: {s3_key}")
 
             s3.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=file_bytes)
             print("Upload successful.")
 
             # start transcription job
-            job_name = f"transcribe-{filename.replace('.', '-')}-{uuid.uuid4().hex[:8]}"
+            job_name = f"transcribe-{filename.replace('.', '-')}-{unique_id}"
             transcribe.start_transcription_job(
                 TranscriptionJobName=job_name,
                 Media={"MediaFileUri": f"s3://{BUCKET_NAME}/{s3_key}"},
