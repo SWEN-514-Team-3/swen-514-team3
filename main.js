@@ -75,3 +75,112 @@ document.getElementById("aiInput").addEventListener("input", function () {
   document.getElementById("aiResult").value = "";
   document.getElementById("aiStatus").textContent = "Review the edited source before generating another draft.";
 });
+
+// ---------- Meeting and action item lists ----------
+
+var FILTER_ON = "rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white";
+var FILTER_OFF = "rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300";
+var GROUP_NAMES = { open: "Open", overdue: "Overdue", completed: "Completed" };
+
+var selectedGroup = "open";
+var actionItems = [];
+
+// Today as "YYYY-MM-DD" in the user's local time.
+function today() {
+  var now = new Date();
+  var month = String(now.getMonth() + 1).padStart(2, "0");
+  var day = String(now.getDate()).padStart(2, "0");
+  return now.getFullYear() + "-" + month + "-" + day;
+}
+
+// Every action item belongs to exactly one group:
+//   completed - its status is completed
+//   overdue   - not completed, and the due date is before today
+//   open      - everything else
+function getActionGroup(item) {
+  if (item.status === "completed") return "completed";
+  if (item.due_date.slice(0, 10) < today()) return "overdue";
+  return "open";
+}
+
+function setMessage(id, text) {
+  document.getElementById(id).textContent = text;
+}
+
+function addCell(row, text) {
+  var cell = document.createElement("td");
+  cell.className = "px-3 py-2";
+  cell.textContent = text;
+  row.appendChild(cell);
+}
+
+function showMeetings(meetings) {
+  var body = document.getElementById("meetingsBody");
+  body.textContent = "";
+  meetings.forEach(function (meeting) {
+    var row = document.createElement("tr");
+    row.className = "border-b border-slate-100";
+    addCell(row, meeting.title);
+    addCell(row, meeting.meeting_date.slice(0, 10));
+    body.appendChild(row);
+  });
+  setMessage("meetingsStatus", meetings.length === 0 ? "No meetings yet." : "");
+}
+
+function showActionItems() {
+  // Highlight the selected button
+  Object.keys(GROUP_NAMES).forEach(function (group) {
+    document.getElementById("filter-" + group).className = group === selectedGroup ? FILTER_ON : FILTER_OFF;
+  });
+
+  var body = document.getElementById("actionsBody");
+  body.textContent = "";
+  var count = 0;
+  actionItems.forEach(function (item) {
+    var group = getActionGroup(item);
+    if (group !== selectedGroup) return;
+    var row = document.createElement("tr");
+    row.className = "border-b border-slate-100";
+    addCell(row, item.description);
+    addCell(row, item.due_date.slice(0, 10));
+    addCell(row, GROUP_NAMES[group]);
+    body.appendChild(row);
+    count++;
+  });
+  setMessage("actionsStatus", count === 0 ? "No " + GROUP_NAMES[selectedGroup].toLowerCase() + " action items." : "");
+}
+
+// Called by the Open / Overdue / Completed buttons
+function showGroup(group) {
+  selectedGroup = group;
+  showActionItems();
+}
+
+function loadLists() {
+  setMessage("meetingsStatus", "Loading meetings...");
+  setMessage("actionsStatus", "Loading action items...");
+
+  requestAPI("/meetings")
+    .then(showMeetings)
+    .catch(function (error) { setMessage("meetingsStatus", "Could not load meetings: " + error.message); });
+
+  requestAPI("/action-items")
+    .then(function (items) {
+      actionItems = items;
+      showActionItems();
+    })
+    .catch(function (error) { setMessage("actionsStatus", "Could not load action items: " + error.message); });
+}
+
+// Remove the lists from the page when the user signs out
+function clearLists() {
+  actionItems = [];
+  document.getElementById("meetingsBody").textContent = "";
+  document.getElementById("actionsBody").textContent = "";
+  setMessage("meetingsStatus", "");
+  setMessage("actionsStatus", "");
+}
+
+// auth.js calls these when the user signs in or out
+window.onSignedIn = loadLists;
+window.onSignedOut = clearLists;

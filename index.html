@@ -24,24 +24,31 @@
 
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="meetings">
       <h2 class="mb-4 text-lg font-semibold text-slate-900">Meetings</h2>
+      <p id="meetingsStatus" class="mb-3 text-sm text-slate-500"></p>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse text-left text-sm">
-          <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Title</th><th class="px-3 py-2 font-medium">Date</th><th class="px-3 py-2 font-medium">Owner</th></tr>
-          <tr class="border-b border-slate-100"><td class="px-3 py-2">Sprint Planning</td><td class="px-3 py-2 whitespace-nowrap">2026-10-01</td><td class="px-3 py-2">Alex</td></tr>
-          <tr class="border-b border-slate-100"><td class="px-3 py-2">Design Review</td><td class="px-3 py-2 whitespace-nowrap">2026-10-08</td><td class="px-3 py-2">Alex</td></tr>
-          <tr class="border-b border-slate-100"><td class="px-3 py-2">Retro</td><td class="px-3 py-2 whitespace-nowrap">2026-10-12</td><td class="px-3 py-2">Alex</td></tr>
+          <thead>
+            <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Title</th><th class="px-3 py-2 font-medium">Date</th></tr>
+          </thead>
+          <tbody id="meetingsBody"></tbody>
         </table>
       </div>
     </div>
 
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="actions">
       <h2 class="mb-4 text-lg font-semibold text-slate-900">My Action Items</h2>
+      <div class="mb-3 flex flex-wrap gap-2">
+        <button id="filter-open" type="button" onclick="showGroup('open')" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Open</button>
+        <button id="filter-overdue" type="button" onclick="showGroup('overdue')" class="rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300">Overdue</button>
+        <button id="filter-completed" type="button" onclick="showGroup('completed')" class="rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300">Completed</button>
+      </div>
+      <p id="actionsStatus" class="mb-3 text-sm text-slate-500"></p>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse text-left text-sm">
-          <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Description</th><th class="px-3 py-2 font-medium">Due</th><th class="px-3 py-2 font-medium">Status</th></tr>
-          <tr class="border-b border-slate-100"><td class="px-3 py-2">Write test plan</td><td class="px-3 py-2 whitespace-nowrap">2026-10-20</td><td class="px-3 py-2">Open</td></tr>
-          <tr class="border-b border-slate-100"><td class="px-3 py-2">Update diagram</td><td class="px-3 py-2 whitespace-nowrap">2026-10-05</td><td class="px-3 py-2 font-semibold text-red-600">Overdue</td></tr>
-          <tr class="border-b border-slate-100"><td class="px-3 py-2">Send notes</td><td class="px-3 py-2 whitespace-nowrap">2026-10-02</td><td class="px-3 py-2">Completed</td></tr>
+          <thead>
+            <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Description</th><th class="px-3 py-2 font-medium">Due</th><th class="px-3 py-2 font-medium">Status</th></tr>
+          </thead>
+          <tbody id="actionsBody"></tbody>
         </table>
       </div>
     </div>
