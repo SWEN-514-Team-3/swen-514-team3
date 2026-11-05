@@ -64,14 +64,16 @@ async function runTranscribe() {
     try {
         var arrayBuffer = await file.arrayBuffer();
         status.textContent = "Transcribing audio file...";
-        var data = await requestAPI("/transcribe", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/octet-stream",
-                "x-file-name": file.name,
+        var data = await requestAPI(
+            "/transcribe?filename=" + encodeURIComponent(file.name),
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/octet-stream",
+                },
+                body: arrayBuffer,
             },
-            body: arrayBuffer,
-        });
+        );
         result.value = data.transcript;
         status.className = "mt-3 text-sm text-green-600";
         status.textContent = "Transcription completed.";

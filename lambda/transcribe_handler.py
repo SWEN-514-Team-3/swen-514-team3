@@ -28,10 +28,9 @@ def lambda_handler(event, context):
         if not claims.get("sub"):
             return response(401, {"error": "Please sign in before starting a transcription."})
 
-        # get file name from headers or generate a unique name
-        headers = event.get("headers") or {}
-        headers_lower = {k.lower(): v for k, v in headers.items()}
-        filename = headers_lower.get("x-file-name", f"audio-{uuid.uuid4().hex[:8]}.m4a")
+        # get file name from query params or generate a unique name
+        query_params = event.get("queryStringParameters") or {}
+        filename = query_params.get("filename", f"audio-{uuid.uuid4().hex[:8]}.m4a")
 
         print(f"Target file name for upload: {filename}")
 
