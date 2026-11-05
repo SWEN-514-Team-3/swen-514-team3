@@ -29,7 +29,10 @@ function requestAPI(path, options) {
 
 // Implement functionality for uploading a file to website
 function runTranscribe() {
-  return;
+  var file = document.getElementById("audioInput");
+  var button = document.getElementById("runTranscribe");
+  var status = document.getElementById("transcribeStatus");
+  var result = document.getElementById("transcribeResult");
 }
 
 function testBackend() {

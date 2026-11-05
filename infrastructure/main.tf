@@ -114,6 +114,38 @@ resource "aws_lambda_function" "api" {
   ]
 }
 
+# transcribe api lambda
+resource "aws_lambda_function" "transcribe_api" {
+  function_name = "${var.project_name}-transcribe_api"
+  role = aws_iam_role.lambda.arn
+  handler = "transcribe_handler.lambda_handler"
+  runtime = "python3.12"
+
+  filename = data.archive_file.api_transcribe.output_path
+  source_code_hash = data.archive_file.api_transcribe.output_base64sha256
+
+  timeout     = 25
+  memory_size = 256
+
+  vpc_config {
+    subnet_ids = module.networking.private_subnet_ids
+    security_group_ids = [module.networking.lambda_security_group_id]
+  }
+
+  environment {
+    variables = {
+      S3_BUCKET_NAME = aws_s3_bucket.recordings_bucket.bucket
+    }
+  }
+
+  depends_on = [ 
+    aws_iam_role_policy_attachment.lambda_logs,
+    aws_iam_role_policy.lambda_transcribe,
+    aws_vpc_endpoint.transcribe 
+  ]
+}
+
+
 # HTTP API Gateway
 resource "aws_apigatewayv2_api" "http" {
   name          = "${var.project_name}-api"
@@ -137,6 +169,14 @@ resource "aws_apigatewayv2_integration" "lambda" {
   api_id                 = aws_apigatewayv2_api.http.id
   integration_type       = "AWS_PROXY"
   integration_uri        = aws_lambda_function.api.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_integration" "transcribe_lambda" {
+  api_id                 = aws_apigatewayv2_api.http.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.transcribe_api.invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
@@ -184,6 +224,14 @@ resource "aws_lambda_permission" "api_gateway" {
   source_arn    = "${aws_apigatewayv2_api.http.execution_arn}/*/*"
 }
 
+resource "aws_lambda_permission" "api_gateway_transcribe" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.transcribe_api.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http.execution_arn}/*/*"
+}
+
 
 resource "aws_iam_role_policy" "lambda_manage_reminders" {
   name = "${var.project_name}-manage-reminders"
@@ -216,6 +264,11 @@ resource "aws_iam_role_policy" "lambda_manage_reminders" {
   })
 }
 
+data "archive_file" "api_transcribe" {
+    type = "zip"
+    source_file = "${path.module}/../lambda/transcribe_handler.py"
+    output_path = "${path.module}/.terraform/transcribe-api-lambda.zip"
+}
 
 data "archive_file" "api" {
   type        = "zip"
