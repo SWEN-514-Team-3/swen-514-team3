@@ -37,6 +37,18 @@ resource "aws_vpc_security_group_egress_rule" "lambda_transcribe" {
   to_port                      = 443
 }
 
+data "aws_prefix_list" "s3_prefix" {
+  name = "com.amazonaws.${var.aws_region}.s3"
+}
+
+resource "aws_vpc_security_group_egress_rule" "lambda_s3" {
+  security_group_id = module.networking.lambda_security_group_id
+  prefix_list_id    = data.aws_prefix_list.s3_prefix.id
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+}
+
 resource "aws_vpc_endpoint" "transcribe" {
   vpc_id              = module.networking.vpc_id
   service_name        = "com.amazonaws.${var.aws_region}.transcribe"

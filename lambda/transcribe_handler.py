@@ -9,7 +9,6 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 s3 = boto3.client("s3")
-sts = boto3.client("sts")
 transcribe = boto3.client('transcribe')
 BUCKET_NAME = "audio-drop-bucket"
 
@@ -27,12 +26,14 @@ def lambda_handler(event, context):
 
     # print logs because stuff isnt working
     try:
+        print(f"[IAM CHECK] Attempting to access S3 bucket '{BUCKET_NAME}'...")
         s3.head_bucket(Bucket=BUCKET_NAME)
         print(f"[IAM CHECK] SUCCESS: Access to S3 bucket '{BUCKET_NAME}' is allowed.")
     except Exception as e:
         print(f"[IAM CHECK] FAILED S3 access: {str(e)}")
 
     try:
+        print("[IAM CHECK] Attempting to access Transcribe service...")
         transcribe = boto3.client("transcribe")
         transcribe.list_transcription_jobs(MaxResults=1)
         print("[IAM CHECK] SUCCESS: 'transcribe:ListTranscriptionJobs' (Transcribe access) allowed.")
