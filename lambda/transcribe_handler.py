@@ -93,12 +93,21 @@ def lambda_handler(event, context):
             )
             print("Transcription job started successfully.")
 
+            status = transcribe.get_transcription_job(TranscriptionJobName=job_name)
+            transcript_URI = status["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
+
+            with urllib.request.urlopen(transcript_URI) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                transcript_text = data["results"]["transcripts"][0]["transcript"]
+
+
             return response(200, {
                 "status": "completed",
                 "service": "aws-transcribe",
                 "message": f"Started transcription job {job_name}",
                 "jobName": job_name,
-                "transcriptPath": f"transcripts/{job_name}.json"
+                "transcriptPath": f"transcripts/{job_name}.json",
+                "transcript": transcript_text
             })
         except Exception as error:
             LOGGER.exception("Transcribe start failed: %s", str(error))
