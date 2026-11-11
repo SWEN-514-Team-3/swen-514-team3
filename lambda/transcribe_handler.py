@@ -1,4 +1,5 @@
 import base64
+import re
 import uuid
 import json
 
@@ -8,6 +9,7 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 s3 = boto3.client("s3")
+sts = boto3.client("sts")
 transcribe = boto3.client('transcribe')
 BUCKET_NAME = "audio-drop-bucket"
 
@@ -22,6 +24,31 @@ def response(status_code, body):
 def lambda_handler(event, context):
     print("Yay we made it here!!")
     route = event.get("routeKey", "")
+
+    # print logs because stuff isnt working
+    try:
+        # Get execution identity details
+        identity = sts.get_caller_identity()
+        print(f"[IAM DEBUG] Account ID: {identity.get('Account')}")
+        print(f"[IAM DEBUG] Full ARN: {identity.get('Arn')}")
+        print(f"[IAM DEBUG] User/Role ID: {identity.get('UserId')}")
+    except Exception as e:
+        print(f"[IAM DEBUG ERROR] Failed to fetch caller identity: {str(e)}")
+
+    try:
+        s3.head_bucket(Bucket=BUCKET_NAME)
+        print(f"[IAM CHECK] SUCCESS: Access to S3 bucket '{BUCKET_NAME}' is allowed.")
+    except Exception as e:
+        print(f"[IAM CHECK] FAILED S3 access: {str(e)}")
+
+    try:
+        transcribe = boto3.client("transcribe")
+        transcribe.list_transcription_jobs(MaxResults=1)
+        print("[IAM CHECK] SUCCESS: 'transcribe:ListTranscriptionJobs' (Transcribe access) allowed.")
+    except Exception as e:
+        print(f"[IAM CHECK] FAILED Transcribe access: {str(e)}")
+
+    print(f"Incoming route: {route}, http method: {event.get('httpMethod')}")
 
     if route == "POST /transcribe":
         claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
@@ -62,7 +89,8 @@ def lambda_handler(event, context):
             print("Upload successful.")
 
             # start transcription job
-            job_name = f"transcribe-{filename.replace('.', '-')}-{unique_id}"
+            clean_filename = re.sub(r"[^a-zA-Z0-9-_]", "-", filename)
+            job_name = f"transcribe-{clean_filename}-{unique_id}"
             transcribe.start_transcription_job(
                 TranscriptionJobName=job_name,
                 Media={"MediaFileUri": f"s3://{BUCKET_NAME}/{s3_key}"},
