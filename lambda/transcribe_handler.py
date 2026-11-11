@@ -55,7 +55,7 @@ def lambda_handler(event, context):
 
         # upload to s3 bucket
         try:
-            s3_key = f"uploads/{unique_id}-{filename}"
+            s3_key = f"recordings/{unique_id}-{filename}"
             print(f"Uploading file to S3: {s3_key}")
 
             s3.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=file_bytes)
