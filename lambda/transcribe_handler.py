@@ -27,15 +27,6 @@ def lambda_handler(event, context):
 
     # print logs because stuff isnt working
     try:
-        # Get execution identity details
-        identity = sts.get_caller_identity()
-        print(f"[IAM DEBUG] Account ID: {identity.get('Account')}")
-        print(f"[IAM DEBUG] Full ARN: {identity.get('Arn')}")
-        print(f"[IAM DEBUG] User/Role ID: {identity.get('UserId')}")
-    except Exception as e:
-        print(f"[IAM DEBUG ERROR] Failed to fetch caller identity: {str(e)}")
-
-    try:
         s3.head_bucket(Bucket=BUCKET_NAME)
         print(f"[IAM CHECK] SUCCESS: Access to S3 bucket '{BUCKET_NAME}' is allowed.")
     except Exception as e:

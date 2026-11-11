@@ -15,34 +15,6 @@ resource "aws_s3_object" "folder1" {
   key    = "recordings/"
 }
 
-# Combined iam policies for both transcribe & s3
-resource "aws_iam_role_policy" "lambda_transcribe" {
-  name = "${var.project_name}-transcribe-access"
-  role = aws_iam_role.lambda.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "transcribe:StartTranscriptionJob",
-        "transcribe:GetTranscriptionJob",
-        "transcribe:ListTranscriptionJobs"
-      ]
-      Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject"
-        ]
-        Resource = "${aws_s3_bucket.recordings_bucket.arn}/*"
-      }
-    ]
-  })
-}
-
 resource "aws_security_group" "transcribe_endpoint" {
   name        = "${var.project_name}-transcribe-endpoint"
   description = "Transcribe PrivateLink HTTPS from application Lambda only"
@@ -88,6 +60,34 @@ resource "aws_vpc_endpoint" "transcribe" {
         ArnEquals = { "aws:PrincipalArn" = aws_iam_role.lambda.arn }
       }
     }]
+  })
+}
+
+# Combined iam policies for both transcribe & s3
+resource "aws_iam_role_policy" "lambda_transcribe" {
+  name = "${var.project_name}-transcribe-access"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "transcribe:StartTranscriptionJob",
+        "transcribe:GetTranscriptionJob",
+        "transcribe:ListTranscriptionJobs"
+      ]
+      Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = "${aws_s3_bucket.recordings_bucket.arn}/*"
+      }
+    ]
   })
 }
 
