@@ -1,6 +1,6 @@
 import base64
 import re
-from time import time
+import time
 import uuid
 import json
 
@@ -110,8 +110,6 @@ def lambda_handler(event, context):
             return response(200, {
                 "status": "completed",
                 "service": "aws-transcribe",
-                "message": f"Started transcription job {job_name}",
-                "jobName": job_name,
                 "transcriptPath": f"transcripts/{job_name}.json",
                 "transcript": transcript_text
             })
