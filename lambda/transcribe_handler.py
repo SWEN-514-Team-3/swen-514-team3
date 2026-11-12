@@ -1,5 +1,6 @@
 import base64
 import re
+from time import time
 import uuid
 import json
 
@@ -93,14 +94,19 @@ def lambda_handler(event, context):
             )
             print("Transcription job started successfully.")
 
-            status = transcribe.get_transcription_job(TranscriptionJobName=job_name)
-            transcript_URI = status["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
+            while True:
+                job_status = transcribe.get_transcription_job(TranscriptionJobName=job_name)
+                status = job_status["TranscriptionJob"]["TranscriptionJobStatus"]
+                if status == "COMPLETED":
+                    break
+                if status == "FAILED":
+                    raise RuntimeError("Transcription job failed.")
+                time.sleep(1)
 
-            with urllib.request.urlopen(transcript_URI) as response:
-                data = json.loads(response.read().decode("utf-8"))
-                transcript_text = data["results"]["transcripts"][0]["transcript"]
-
-
+            obj = s3.get_object(Bucket=BUCKET_NAME, Key=f"transcripts/{job_name}.json")
+            data = json.loads(obj["Body"].read().decode("utf-8"))
+            transcript_text = data["results"]["transcripts"][0]["transcript"]
+            
             return response(200, {
                 "status": "completed",
                 "service": "aws-transcribe",
