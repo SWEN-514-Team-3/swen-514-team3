@@ -106,12 +106,22 @@ def lambda_handler(event, context):
             obj = s3.get_object(Bucket=BUCKET_NAME, Key=f"transcripts/{job_name}.json")
             data = json.loads(obj["Body"].read().decode("utf-8"))
             transcript_text = data["results"]["transcripts"][0]["transcript"]
-            
+
+            transcript_timestamped = ""
+            audio_segments = data["results"]["audio_segments"]
+            for segment in audio_segments:
+                built_line = f"{segment["start_time"]}-{segment["end_time"]}: {segment["transcript"]}"
+                transcript_timestamped += built_line
+
+            if not transcript_timestamped:
+                transcript_timestamped = transcript_text
+
+            # return the transcript
             return response(200, {
                 "status": "completed",
                 "service": "aws-transcribe",
                 "transcriptPath": f"transcripts/{job_name}.json",
-                "transcript": transcript_text
+                "transcript": transcript_timestamped
             })
         except Exception as error:
             LOGGER.exception("Transcribe start failed: %s", str(error))
