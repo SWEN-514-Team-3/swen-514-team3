@@ -36,7 +36,8 @@ resource "aws_vpc_endpoint" "secretsmanager" {
 resource "aws_apigatewayv2_route" "action_items_write" {
   for_each = toset([
     "POST /action-items",
-    "PATCH /action-items/{id}"
+    "PATCH /action-items/{id}",
+    "POST /reminders/run"
   ])
 
   api_id             = aws_apigatewayv2_api.http.id

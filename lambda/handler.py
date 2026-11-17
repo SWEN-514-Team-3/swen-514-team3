@@ -136,6 +136,24 @@ def create_decision(event):
     return response(200, {"id": str(rows[0][0])})
 
 
+def send_reminders(event):
+    # Finds unfinished action items that are overdue or due within a day and
+    # publishes one SNS message per item. EventBridge Scheduler runs this daily,
+    # and the Reminders button on the page runs it on demand.
+    rows = database().run(
+        "SELECT a.description, a.due_date, u.name, u.email, m.title "
+        "FROM action_items a JOIN users u ON u.id = a.owner_id JOIN meetings m ON m.id = a.meeting_id "
+        "WHERE a.status <> 'completed' AND a.due_date <= CURRENT_DATE + 1 ORDER BY a.due_date")
+    sns = boto3.client("sns", config=Config(connect_timeout=3, retries={"total_max_attempts": 2}))
+    sent = []
+    for r in rows:
+        message = ("Hi " + r[2] + ", your action item \"" + r[0] + "\" from " + r[4] +
+                   " is due on " + str(r[1]) + ". Please update its status.")
+        sns.publish(TopicArn=os.environ["SNS_TOPIC_ARN"], Subject="Action item reminder", Message=message)
+        sent.append({"owner": r[2], "description": r[0], "due_date": str(r[1])})
+    return response(200, {"sent": len(sent), "reminders": sent})
+
+
 def search_history(event):
     # Searches meetings, decisions and action items with the search_vector columns
     q = ((event.get("queryStringParameters") or {}).get("q") or "").strip()
@@ -196,6 +214,7 @@ DATA_ROUTES = {
     "PUT /meetings/{id}": update_meeting,
     "POST /meetings/{id}/decisions": create_decision,
     "GET /search": search_history,
+    "POST /reminders/run": send_reminders,
     "GET /action-items": list_action_items,
     "POST /action-items": create_action_item,
     "PATCH /action-items/{id}": update_action_item_status,
@@ -214,6 +233,9 @@ def handle_data_route(route, event):
 
 
 def lambda_handler(event, context):
+    # EventBridge Scheduler calls the Lambda directly, without an HTTP route
+    if event.get("source") == "reminder-schedule":
+        return handle_data_route("POST /reminders/run", event)
     route = event.get("routeKey", "")
     if route == "GET /health":
         return response(200, {"status": "ok", "service": "meeting-momentum-api",

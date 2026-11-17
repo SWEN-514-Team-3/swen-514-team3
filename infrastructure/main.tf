@@ -103,6 +103,7 @@ resource "aws_lambda_function" "api" {
       DB_HOST          = module.database.db_endpoint
       DB_NAME          = "meetingmomentum"
       DB_SECRET_ARN    = module.database.db_secret_arn
+      SNS_TOPIC_ARN    = module.notifications.reminder_sns_topic_arn
     }
   }
 
@@ -110,7 +111,8 @@ resource "aws_lambda_function" "api" {
     aws_iam_role_policy_attachment.lambda_logs,
     aws_iam_role_policy.lambda_db_secret,
     aws_iam_role_policy.lambda_bedrock,
-    aws_vpc_endpoint.bedrock
+    aws_vpc_endpoint.bedrock,
+    aws_vpc_endpoint.sns
   ]
 }
 

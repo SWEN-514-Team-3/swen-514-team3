@@ -98,6 +98,14 @@
       <p id="itemFormError" class="mt-2 text-sm text-red-600"></p>
     </div>
 
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="reminders">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900">Reminders</h2>
+      <p class="mb-3 text-sm text-slate-500">EventBridge Scheduler sends these once a day. Use the button to send them now.</p>
+      <button type="button" onclick="sendReminders()" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Send reminders now</button>
+      <p id="reminderStatus" class="mt-2 text-sm text-slate-500"></p>
+      <ul id="reminderList" class="mt-2 list-disc space-y-1 pl-5 text-sm"></ul>
+    </div>
+
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="backend">
       <h2 class="mb-4 text-lg font-semibold text-slate-900">Backend Test</h2>
       <button type="button" onclick="testBackend()" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Call Backend</button>

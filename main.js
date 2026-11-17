@@ -192,6 +192,8 @@ function clearLists() {
   document.getElementById("meetingDetail").hidden = true;
   document.getElementById("searchResults").textContent = "";
   setMessage("searchStatus", "");
+  document.getElementById("reminderList").textContent = "";
+  setMessage("reminderStatus", "");
 }
 
 // ---------- Create meeting, add action item, change status ----------
@@ -376,4 +378,20 @@ function searchHistory(event) {
       setMessage("searchStatus", list.children.length === 0 ? "Nothing found." : "");
     })
     .catch(function (error) { setMessage("searchStatus", "Search failed: " + error.message); });
+}
+
+// ---------- Reminders ----------
+
+function sendReminders() {
+  var list = document.getElementById("reminderList");
+  list.textContent = "";
+  setMessage("reminderStatus", "Sending...");
+  requestAPI("/reminders/run", { method: "POST" })
+    .then(function (data) {
+      data.reminders.forEach(function (r) {
+        addResult(list, r.owner + ": " + r.description + " (due " + r.due_date + ")");
+      });
+      setMessage("reminderStatus", data.sent === 0 ? "No action items need a reminder." : "Sent " + data.sent + " reminder(s) through SNS.");
+    })
+    .catch(function (error) { setMessage("reminderStatus", "Could not send reminders: " + error.message); });
 }
