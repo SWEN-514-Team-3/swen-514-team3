@@ -37,7 +37,8 @@ resource "aws_apigatewayv2_route" "action_items_write" {
   for_each = toset([
     "POST /action-items",
     "PATCH /action-items/{id}",
-    "POST /reminders/run"
+    "POST /reminders/run",
+    "PATCH /ai-results/{id}"
   ])
 
   api_id             = aws_apigatewayv2_api.http.id

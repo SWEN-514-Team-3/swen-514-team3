@@ -115,11 +115,11 @@ def get_meeting(event):
 
 
 def update_meeting(event):
-    # Lets the owner edit the agenda and the meeting notes
+    # Lets the owner edit the meeting notes
     body = json.loads(event["body"])
     rows = database().run(
-        "UPDATE meetings SET agenda = :agenda, notes = :notes WHERE id = CAST(:id AS uuid) RETURNING id",
-        agenda=body.get("agenda"), notes=body.get("notes"), id=event["pathParameters"]["id"])
+        "UPDATE meetings SET notes = :notes WHERE id = CAST(:id AS uuid) RETURNING id",
+        notes=body.get("notes"), id=event["pathParameters"]["id"])
     if not rows:
         return response(404, {"error": "Meeting not found."})
     return response(200, {"id": str(rows[0][0])})
@@ -155,6 +155,37 @@ def send_reminders(event):
         sns.publish(TopicArn=os.environ["SNS_TOPIC_ARN"], Subject="Action item reminder", Message=message)
         sent.append({"owner": r[2], "description": r[0], "due_date": str(r[1])})
     return response(200, {"sent": len(sent), "reminders": sent})
+
+
+def save_ai_draft(meeting_id, draft, model_id):
+    # Stores a Bedrock draft with its status so it can be reviewed later
+    result = json.dumps({"draft": draft, "model_id": model_id})
+    rows = database().run(
+        "INSERT INTO ai_results (meeting_id, service, result, processing_status, review_status) "
+        "VALUES (CAST(:meeting AS uuid), 'bedrock', CAST(:result AS jsonb), 'succeeded', 'unreviewed') RETURNING id",
+        meeting=meeting_id, result=result)
+    return str(rows[0][0])
+
+
+def review_ai_result(event):
+    # The user accepts the draft as it is, or saves a corrected version of it
+    body = json.loads(event["body"])
+    status = body.get("review_status")
+    if status not in ("accepted", "corrected"):
+        return response(400, {"error": "Choose accept or save corrections."})
+    corrected = None
+    if status == "corrected":
+        text = (body.get("corrected_text") or "").strip()
+        if not text:
+            return response(400, {"error": "Enter the corrected draft first."})
+        corrected = json.dumps({"draft": text})
+    rows = database().run(
+        "UPDATE ai_results SET review_status = :status, corrected_result = CAST(:corrected AS jsonb) "
+        "WHERE id = CAST(:id AS uuid) RETURNING id",
+        status=status, corrected=corrected, id=event["pathParameters"]["id"])
+    if not rows:
+        return response(404, {"error": "AI result not found."})
+    return response(200, {"id": str(rows[0][0]), "review_status": status})
 
 
 def search_history(event):
@@ -218,6 +249,7 @@ DATA_ROUTES = {
     "POST /meetings/{id}/decisions": create_decision,
     "GET /search": search_history,
     "POST /reminders/run": send_reminders,
+    "PATCH /ai-results/{id}": review_ai_result,
     "GET /action-items": list_action_items,
     "POST /action-items": create_action_item,
     "PATCH /action-items/{id}": update_action_item_status,
@@ -284,8 +316,18 @@ def lambda_handler(event, context):
                           if isinstance(part.get("text"), str)).strip()
         if not draft:
             return response(502, {"error": "AI returned no draft. Please try again."})
-        return response(200, {"status": "completed", "service": "amazon-bedrock", "modelId": model_id,
-                              "reviewStatus": "needs-review", "result": draft})
+        output = {"status": "completed", "service": "amazon-bedrock", "modelId": model_id,
+                  "reviewStatus": "needs-review", "result": draft}
+        # Save the draft with the meeting it belongs to, so it can be reviewed
+        if body.get("meeting_id"):
+            try:
+                output["aiResultId"] = save_ai_draft(body["meeting_id"], draft, model_id)
+            except Exception:
+                LOGGER.exception("Could not save the AI draft")
+                global _conn
+                _conn = None
+                output["saveError"] = "The draft could not be saved to the meeting."
+        return response(200, output)
     except ClientError as error:
         code = error.response.get("Error", {}).get("Code", "Unknown")
         LOGGER.warning("Bedrock invocation failed: %s", code)
