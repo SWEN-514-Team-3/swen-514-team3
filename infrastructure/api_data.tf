@@ -45,3 +45,17 @@ resource "aws_apigatewayv2_route" "action_items_write" {
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
+
+# Routes for recording decisions and searching meeting history (signed-in users only).
+resource "aws_apigatewayv2_route" "history" {
+  for_each = toset([
+    "POST /meetings/{id}/decisions",
+    "GET /search"
+  ])
+
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = each.value
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}

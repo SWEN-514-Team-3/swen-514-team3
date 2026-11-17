@@ -13,6 +13,7 @@
       <h1 class="text-xl font-semibold tracking-tight">Meeting Momentum</h1>
       <nav class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
         <a href="#meetings" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">Meetings</a>
+        <a href="#history" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">Search</a>
         <a href="#actions" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">My Action Items</a>
         <a href="#backend" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">Backend Test</a>
         <a href="#ai" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">AI Demo</a>
@@ -36,9 +37,39 @@
       <form onsubmit="createMeeting(event)" class="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
         <label class="text-sm">Title<br><input id="meetingTitle" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
         <label class="text-sm">Date<br><input id="meetingDate" type="date" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <label class="text-sm">Agenda<br><input id="meetingAgenda" class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <label class="text-sm">Participants (emails, separated by commas)<br><input id="meetingParticipants" class="mt-1 w-72 rounded border border-slate-300 px-2 py-1.5"></label>
         <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Create meeting</button>
       </form>
       <p id="meetingFormError" class="mt-2 text-sm text-red-600"></p>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="meetingDetail" hidden>
+      <h2 id="detailTitle" class="mb-1 text-lg font-semibold text-slate-900"></h2>
+      <p id="detailInfo" class="mb-3 text-sm text-slate-500"></p>
+      <label for="detailAgenda" class="block text-sm font-medium">Agenda</label>
+      <textarea id="detailAgenda" class="mb-3 mt-1 h-16 w-full rounded border border-slate-300 p-2 text-sm"></textarea>
+      <label for="detailNotes" class="block text-sm font-medium">Meeting notes</label>
+      <textarea id="detailNotes" class="mt-1 h-28 w-full rounded border border-slate-300 p-2 text-sm"></textarea>
+      <button type="button" onclick="saveNotes()" class="mt-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Save notes</button>
+      <p id="notesMessage" class="mt-2 text-sm text-slate-500"></p>
+      <h3 class="mb-2 mt-4 text-sm font-semibold">Decisions</h3>
+      <ul id="decisionList" class="list-disc space-y-1 pl-5 text-sm"></ul>
+      <form onsubmit="addDecision(event)" class="mt-3 flex flex-wrap items-end gap-3">
+        <label class="text-sm">New decision<br><input id="decisionText" required class="mt-1 w-80 rounded border border-slate-300 px-2 py-1.5"></label>
+        <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Record decision</button>
+      </form>
+      <p id="decisionError" class="mt-2 text-sm text-red-600"></p>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="history">
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">Search meeting history</h2>
+      <form onsubmit="searchHistory(event)" class="flex flex-wrap items-end gap-3">
+        <label class="text-sm">Search<br><input id="searchText" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Search</button>
+      </form>
+      <p id="searchStatus" class="mt-2 text-sm text-slate-500"></p>
+      <ul id="searchResults" class="mt-2 list-disc space-y-1 pl-5 text-sm"></ul>
     </div>
 
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="actions">

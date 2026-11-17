@@ -120,7 +120,7 @@ function showMeetings(meetings) {
   meetings.forEach(function (meeting) {
     var row = document.createElement("tr");
     row.className = "border-b border-slate-100";
-    addCell(row, meeting.title);
+    addMeetingTitle(row, meeting);
     addCell(row, meeting.meeting_date.slice(0, 10));
     body.appendChild(row);
   });
@@ -189,6 +189,9 @@ function clearLists() {
   document.getElementById("actionsBody").textContent = "";
   setMessage("meetingsStatus", "");
   setMessage("actionsStatus", "");
+  document.getElementById("meetingDetail").hidden = true;
+  document.getElementById("searchResults").textContent = "";
+  setMessage("searchStatus", "");
 }
 
 // ---------- Create meeting, add action item, change status ----------
@@ -215,9 +218,16 @@ function saveChange(path, method, data, errorId) {
 function createMeeting(event) {
   event.preventDefault();
   var form = event.target;
+  // Participants are typed as emails separated by commas
+  var participants = document.getElementById("meetingParticipants").value
+    .split(",")
+    .map(function (email) { return email.trim(); })
+    .filter(function (email) { return email !== ""; });
   saveChange("/meetings", "POST", {
     title: document.getElementById("meetingTitle").value,
-    meeting_date: document.getElementById("meetingDate").value
+    meeting_date: document.getElementById("meetingDate").value,
+    agenda: document.getElementById("meetingAgenda").value,
+    participants: participants
   }, "meetingFormError").then(function (saved) {
     if (saved) form.reset();
   });
@@ -262,3 +272,108 @@ function addStatusDropdown(row, item) {
 // auth.js calls these when the user signs in or out
 window.onSignedIn = loadLists;
 window.onSignedOut = clearLists;
+
+// ---------- Meeting details: agenda, notes and decisions ----------
+
+var openMeetingId = null;
+
+// The meeting title is a button that opens the details card
+function addMeetingTitle(row, meeting) {
+  var cell = document.createElement("td");
+  cell.className = "px-3 py-2";
+  var button = document.createElement("button");
+  button.type = "button";
+  button.className = "text-indigo-700 underline";
+  button.textContent = meeting.title;
+  button.onclick = function () { openMeeting(meeting.id); };
+  cell.appendChild(button);
+  row.appendChild(cell);
+}
+
+function openMeeting(id) {
+  openMeetingId = id;
+  setMessage("notesMessage", "Loading meeting...");
+  requestAPI("/meetings/" + id)
+    .then(function (meeting) {
+      document.getElementById("meetingDetail").hidden = false;
+      setMessage("detailTitle", meeting.title);
+      var names = meeting.participants.map(function (person) { return person.name; });
+      setMessage("detailInfo", meeting.meeting_date.slice(0, 10) + " | Participants: " +
+        (names.length === 0 ? "none" : names.join(", ")));
+      document.getElementById("detailAgenda").value = meeting.agenda;
+      document.getElementById("detailNotes").value = meeting.notes;
+      setMessage("notesMessage", "");
+      setMessage("decisionError", "");
+      showDecisions(meeting.decisions);
+    })
+    .catch(function (error) { setMessage("notesMessage", "Could not load meeting: " + error.message); });
+}
+
+function showDecisions(decisions) {
+  var list = document.getElementById("decisionList");
+  list.textContent = "";
+  if (decisions.length === 0) {
+    var none = document.createElement("li");
+    none.textContent = "No decisions recorded yet.";
+    list.appendChild(none);
+  }
+  decisions.forEach(function (decision) {
+    var item = document.createElement("li");
+    item.textContent = decision.description + " (" + decision.author + ")";
+    list.appendChild(item);
+  });
+}
+
+function saveNotes() {
+  setMessage("notesMessage", "Saving...");
+  requestAPI("/meetings/" + openMeetingId, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      agenda: document.getElementById("detailAgenda").value,
+      notes: document.getElementById("detailNotes").value
+    })
+  })
+    .then(function () { setMessage("notesMessage", "Saved."); })
+    .catch(function (error) { setMessage("notesMessage", "Could not save: " + error.message); });
+}
+
+function addDecision(event) {
+  event.preventDefault();
+  var form = event.target;
+  setMessage("decisionError", "");
+  requestAPI("/meetings/" + openMeetingId + "/decisions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ description: document.getElementById("decisionText").value })
+  })
+    .then(function () {
+      form.reset();
+      openMeeting(openMeetingId); // reload so the new decision shows up
+    })
+    .catch(function (error) { setMessage("decisionError", "Could not save: " + error.message); });
+}
+
+// ---------- Search meeting history ----------
+
+function addResult(list, text) {
+  var item = document.createElement("li");
+  item.textContent = text;
+  list.appendChild(item);
+}
+
+function searchHistory(event) {
+  event.preventDefault();
+  var list = document.getElementById("searchResults");
+  list.textContent = "";
+  setMessage("searchStatus", "Searching...");
+  var text = document.getElementById("searchText").value;
+  requestAPI("/search?q=" + encodeURIComponent(text))
+    .then(function (data) {
+      data.meetings.forEach(function (m) { addResult(list, "Meeting: " + m.title); });
+      data.decisions.forEach(function (d) { addResult(list, "Decision: " + d.description + " (" + d.meeting + ")"); });
+      data.action_items.forEach(function (a) { addResult(list, "Action item: " + a.description + " (" + a.meeting + ", " + a.status + ")"); });
+      setMessage("searchStatus", list.children.length === 0 ? "Nothing found." : "");
+    })
+    .catch(function (error) { setMessage("searchStatus", "Search failed: " + error.message); });
+}

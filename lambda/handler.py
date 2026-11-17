@@ -72,10 +72,90 @@ def create_meeting(event):
     # Every new meeting is owned by the owner user.
     owner = database().run("SELECT id FROM users WHERE user_type = 'owner' LIMIT 1")
     rows = database().run(
-        "INSERT INTO meetings (title, meeting_date, owner_id) "
-        "VALUES (:title, CAST(:date AS timestamptz), :owner) RETURNING id",
-        title=body.get("title"), date=body.get("meeting_date"), owner=owner[0][0])
+        "INSERT INTO meetings (title, meeting_date, owner_id, agenda) "
+        "VALUES (:title, CAST(:date AS timestamptz), :owner, :agenda) RETURNING id",
+        title=body.get("title"), date=body.get("meeting_date"), owner=owner[0][0],
+        agenda=body.get("agenda"))
+    meeting_id = rows[0][0]
+    # Participants are given as a list of email addresses
+    for email in body.get("participants", []):
+        users = database().run("SELECT id FROM users WHERE email = :email", email=email)
+        if not users:
+            return response(400, {"error": "No user has the email " + email + "."})
+        database().run(
+            "INSERT INTO meeting_participants (meeting_id, user_id) VALUES (:meeting, :user) "
+            "ON CONFLICT DO NOTHING", meeting=meeting_id, user=users[0][0])
+    return response(200, {"id": str(meeting_id)})
+
+
+def get_meeting(event):
+    meeting_id = event["pathParameters"]["id"]
+    rows = database().run(
+        "SELECT id, title, meeting_date, agenda, notes, status FROM meetings WHERE id = CAST(:id AS uuid)",
+        id=meeting_id)
+    if not rows:
+        return response(404, {"error": "Meeting not found."})
+    m = rows[0]
+    people = database().run(
+        "SELECT u.name, u.email FROM meeting_participants p JOIN users u ON u.id = p.user_id "
+        "WHERE p.meeting_id = CAST(:id AS uuid) ORDER BY u.name", id=meeting_id)
+    decisions = database().run(
+        "SELECT d.id, d.description, u.name, d.created_at FROM decisions d JOIN users u ON u.id = d.author_id "
+        "WHERE d.meeting_id = CAST(:id AS uuid) ORDER BY d.created_at", id=meeting_id)
+    return response(200, {
+        "id": str(m[0]), "title": m[1], "meeting_date": m[2].isoformat(),
+        "agenda": m[3] or "", "notes": m[4] or "", "status": m[5],
+        "participants": [{"name": r[0], "email": r[1]} for r in people],
+        "decisions": [{"id": str(r[0]), "description": r[1], "author": r[2], "created_at": r[3].isoformat()}
+                      for r in decisions],
+    })
+
+
+def update_meeting(event):
+    # Lets the owner edit the agenda and the meeting notes
+    body = json.loads(event["body"])
+    rows = database().run(
+        "UPDATE meetings SET agenda = :agenda, notes = :notes WHERE id = CAST(:id AS uuid) RETURNING id",
+        agenda=body.get("agenda"), notes=body.get("notes"), id=event["pathParameters"]["id"])
+    if not rows:
+        return response(404, {"error": "Meeting not found."})
     return response(200, {"id": str(rows[0][0])})
+
+
+def create_decision(event):
+    body = json.loads(event["body"])
+    description = (body.get("description") or "").strip()
+    if not description:
+        return response(400, {"error": "Enter a decision first."})
+    # Decisions are written by the owner user
+    owner = database().run("SELECT id FROM users WHERE user_type = 'owner' LIMIT 1")
+    rows = database().run(
+        "INSERT INTO decisions (meeting_id, description, author_id) "
+        "VALUES (CAST(:meeting AS uuid), :description, :author) RETURNING id",
+        meeting=event["pathParameters"]["id"], description=description, author=owner[0][0])
+    return response(200, {"id": str(rows[0][0])})
+
+
+def search_history(event):
+    # Searches meetings, decisions and action items with the search_vector columns
+    q = ((event.get("queryStringParameters") or {}).get("q") or "").strip()
+    if not q:
+        return response(400, {"error": "Enter a word to search for."})
+    db = database()
+    meetings = db.run(
+        "SELECT id, title FROM meetings WHERE search_vector @@ plainto_tsquery('english', :q) "
+        "ORDER BY meeting_date DESC", q=q)
+    decisions = db.run(
+        "SELECT d.description, m.title FROM decisions d JOIN meetings m ON m.id = d.meeting_id "
+        "WHERE d.search_vector @@ plainto_tsquery('english', :q)", q=q)
+    items = db.run(
+        "SELECT a.description, m.title, a.status FROM action_items a JOIN meetings m ON m.id = a.meeting_id "
+        "WHERE a.search_vector @@ plainto_tsquery('english', :q)", q=q)
+    return response(200, {
+        "meetings": [{"id": str(r[0]), "title": r[1]} for r in meetings],
+        "decisions": [{"description": r[0], "meeting": r[1]} for r in decisions],
+        "action_items": [{"description": r[0], "meeting": r[1], "status": r[2]} for r in items],
+    })
 
 
 def list_action_items(event):
@@ -112,6 +192,10 @@ def update_action_item_status(event):
 DATA_ROUTES = {
     "GET /meetings": list_meetings,
     "POST /meetings": create_meeting,
+    "GET /meetings/{id}": get_meeting,
+    "PUT /meetings/{id}": update_meeting,
+    "POST /meetings/{id}/decisions": create_decision,
+    "GET /search": search_history,
     "GET /action-items": list_action_items,
     "POST /action-items": create_action_item,
     "PATCH /action-items/{id}": update_action_item_status,
