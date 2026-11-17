@@ -1,4 +1,6 @@
 import base64
+import re
+import time
 import uuid
 import json
 
@@ -22,6 +24,24 @@ def response(status_code, body):
 def lambda_handler(event, context):
     print("Yay we made it here!!")
     route = event.get("routeKey", "")
+
+    # print logs because stuff isnt working
+    try:
+        print(f"[IAM CHECK] Attempting to access S3 bucket '{BUCKET_NAME}'...")
+        s3.head_bucket(Bucket=BUCKET_NAME)
+        print(f"[IAM CHECK] SUCCESS: Access to S3 bucket '{BUCKET_NAME}' is allowed.")
+    except Exception as e:
+        print(f"[IAM CHECK] FAILED S3 access: {str(e)}")
+
+    try:
+        print("[IAM CHECK] Attempting to access Transcribe service...")
+        transcribe = boto3.client("transcribe")
+        transcribe.list_transcription_jobs(MaxResults=1)
+        print("[IAM CHECK] SUCCESS: 'transcribe:ListTranscriptionJobs' (Transcribe access) allowed.")
+    except Exception as e:
+        print(f"[IAM CHECK] FAILED Transcribe access: {str(e)}")
+
+    print(f"Incoming route: {route}, http method: {event.get('httpMethod')}")
 
     if route == "POST /transcribe":
         claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
@@ -55,14 +75,15 @@ def lambda_handler(event, context):
 
         # upload to s3 bucket
         try:
-            s3_key = f"uploads/{unique_id}-{filename}"
+            s3_key = f"recordings/{unique_id}-{filename}"
             print(f"Uploading file to S3: {s3_key}")
 
             s3.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=file_bytes)
             print("Upload successful.")
 
             # start transcription job
-            job_name = f"transcribe-{filename.replace('.', '-')}-{unique_id}"
+            clean_filename = re.sub(r"[^a-zA-Z0-9-_]", "-", filename)
+            job_name = f"transcribe-{clean_filename}-{unique_id}"
             transcribe.start_transcription_job(
                 TranscriptionJobName=job_name,
                 Media={"MediaFileUri": f"s3://{BUCKET_NAME}/{s3_key}"},
@@ -73,12 +94,34 @@ def lambda_handler(event, context):
             )
             print("Transcription job started successfully.")
 
+            while True:
+                job_status = transcribe.get_transcription_job(TranscriptionJobName=job_name)
+                status = job_status["TranscriptionJob"]["TranscriptionJobStatus"]
+                if status == "COMPLETED":
+                    break
+                if status == "FAILED":
+                    raise RuntimeError("Transcription job failed.")
+                time.sleep(1)
+
+            obj = s3.get_object(Bucket=BUCKET_NAME, Key=f"transcripts/{job_name}.json")
+            data = json.loads(obj["Body"].read().decode("utf-8"))
+            transcript_text = data["results"]["transcripts"][0]["transcript"]
+
+            transcript_timestamped = ""
+            audio_segments = data["results"]["audio_segments"]
+            for segment in audio_segments:
+                built_line = f"{segment["start_time"]}-{segment["end_time"]}: {segment["transcript"]}"
+                transcript_timestamped += built_line
+
+            if not transcript_timestamped:
+                transcript_timestamped = transcript_text
+
+            # return the transcript
             return response(200, {
                 "status": "completed",
                 "service": "aws-transcribe",
-                "message": f"Started transcription job {job_name}",
-                "jobName": job_name,
-                "transcriptPath": f"transcripts/{job_name}.json"
+                "transcriptPath": f"transcripts/{job_name}.json",
+                "transcript": transcript_timestamped
             })
         except Exception as error:
             LOGGER.exception("Transcribe start failed: %s", str(error))

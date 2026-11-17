@@ -15,34 +15,6 @@ resource "aws_s3_object" "folder1" {
   key    = "recordings/"
 }
 
-# Combined iam policies for both transcribe & s3
-resource "aws_iam_role_policy" "lambda_transcribe" {
-  name = "${var.project_name}-transcribe-access"
-  role = aws_iam_role.lambda.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "transcribe:StartTranscriptionJob",
-        "transcribe:GetTranscriptionJob",
-        "transcribe:ListTranscriptionJobs"
-      ]
-      Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject"
-        ]
-        Resource = "${aws_s3_bucket.recordings_bucket.arn}/*"
-      }
-    ]
-  })
-}
-
 resource "aws_security_group" "transcribe_endpoint" {
   name        = "${var.project_name}-transcribe-endpoint"
   description = "Transcribe PrivateLink HTTPS from application Lambda only"
@@ -63,6 +35,18 @@ resource "aws_vpc_security_group_egress_rule" "lambda_transcribe" {
   ip_protocol                  = "tcp"
   from_port                    = 443
   to_port                      = 443
+}
+
+data "aws_prefix_list" "s3_prefix" {
+  name = "com.amazonaws.${var.aws_region}.s3"
+}
+
+resource "aws_vpc_security_group_egress_rule" "lambda_s3" {
+  security_group_id = module.networking.lambda_security_group_id
+  prefix_list_id    = data.aws_prefix_list.s3_prefix.id
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
 }
 
 resource "aws_vpc_endpoint" "transcribe" {
@@ -88,6 +72,34 @@ resource "aws_vpc_endpoint" "transcribe" {
         ArnEquals = { "aws:PrincipalArn" = aws_iam_role.lambda.arn }
       }
     }]
+  })
+}
+
+# Combined iam policies for both transcribe & s3
+resource "aws_iam_role_policy" "lambda_transcribe" {
+  name = "${var.project_name}-transcribe-access"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "transcribe:StartTranscriptionJob",
+        "transcribe:GetTranscriptionJob",
+        "transcribe:ListTranscriptionJobs"
+      ]
+      Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = "${aws_s3_bucket.recordings_bucket.arn}/*"
+      }
+    ]
   })
 }
 
