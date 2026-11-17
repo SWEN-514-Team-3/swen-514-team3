@@ -69,6 +69,13 @@ def list_meetings(event):
 
 def create_meeting(event):
     body = json.loads(event["body"])
+    # Check every participant email first, so a typo doesn't leave a half-saved meeting
+    participant_ids = []
+    for email in body.get("participants", []):
+        users = database().run("SELECT id FROM users WHERE email = :email", email=email)
+        if not users:
+            return response(400, {"error": "No user has the email " + email + "."})
+        participant_ids.append(users[0][0])
     # Every new meeting is owned by the owner user.
     owner = database().run("SELECT id FROM users WHERE user_type = 'owner' LIMIT 1")
     rows = database().run(
@@ -77,14 +84,10 @@ def create_meeting(event):
         title=body.get("title"), date=body.get("meeting_date"), owner=owner[0][0],
         agenda=body.get("agenda"))
     meeting_id = rows[0][0]
-    # Participants are given as a list of email addresses
-    for email in body.get("participants", []):
-        users = database().run("SELECT id FROM users WHERE email = :email", email=email)
-        if not users:
-            return response(400, {"error": "No user has the email " + email + "."})
+    for user_id in participant_ids:
         database().run(
             "INSERT INTO meeting_participants (meeting_id, user_id) VALUES (:meeting, :user) "
-            "ON CONFLICT DO NOTHING", meeting=meeting_id, user=users[0][0])
+            "ON CONFLICT DO NOTHING", meeting=meeting_id, user=user_id)
     return response(200, {"id": str(meeting_id)})
 
 
