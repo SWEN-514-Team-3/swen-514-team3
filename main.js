@@ -21,19 +21,18 @@ function requestAPI(path, options) {
                 throw new Error(
                     "API is not configured. Redeploy the application configuration.",
                 );
-            if (path === "/ai-sample" || path.startsWith("/transcribe")) {
-                if (!window.getAccessToken)
-                    throw new Error(
-                        "Please sign in before generating a draft.",
-                    );
-                options = options || {};
-                options.headers = Object.assign({}, options.headers, {
-                    Authorization: "Bearer " + (await window.getAccessToken()),
-                });
-            }
+            // Every API request carries the signed-in user's Cognito token.
+            if (!window.getAccessToken)
+                throw new Error("Please sign in first.");
+            options = options || {};
+            options.headers = Object.assign({}, options.headers, {
+                Authorization: "Bearer " + (await window.getAccessToken()),
+            });
             return fetch(config.api_url.replace(/\/$/, "") + path, options);
         })
         .then(function (response) {
+            if (response.status === 401)
+                throw new Error("Your session expired. Please sign in again.");
             return response.json().then(function (data) {
                 if (!response.ok)
                     throw new Error(
@@ -143,3 +142,231 @@ document.getElementById("aiInput").addEventListener("input", function () {
     document.getElementById("aiStatus").textContent =
         "Review the edited source before generating another draft.";
 });
+
+// ---------- Meeting and action item lists ----------
+
+var FILTER_ON =
+    "rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white";
+var FILTER_OFF =
+    "rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300";
+var GROUP_NAMES = { open: "Open", overdue: "Overdue", completed: "Completed" };
+
+var selectedGroup = "open";
+var actionItems = [];
+
+// Today as "YYYY-MM-DD" in the user's local time.
+function today() {
+    var now = new Date();
+    var month = String(now.getMonth() + 1).padStart(2, "0");
+    var day = String(now.getDate()).padStart(2, "0");
+    return now.getFullYear() + "-" + month + "-" + day;
+}
+
+// Every action item belongs to exactly one group:
+//   completed - its status is completed
+//   overdue   - not completed, and the due date is before today
+//   open      - everything else
+function getActionGroup(item) {
+    if (item.status === "completed") return "completed";
+    if (item.due_date.slice(0, 10) < today()) return "overdue";
+    return "open";
+}
+
+function setMessage(id, text) {
+    document.getElementById(id).textContent = text;
+}
+
+function addCell(row, text) {
+    var cell = document.createElement("td");
+    cell.className = "px-3 py-2";
+    cell.textContent = text;
+    row.appendChild(cell);
+}
+
+function showMeetings(meetings) {
+    var body = document.getElementById("meetingsBody");
+    body.textContent = "";
+    meetings.forEach(function (meeting) {
+        var row = document.createElement("tr");
+        row.className = "border-b border-slate-100";
+        addCell(row, meeting.title);
+        addCell(row, meeting.meeting_date.slice(0, 10));
+        body.appendChild(row);
+    });
+    setMessage(
+        "meetingsStatus",
+        meetings.length === 0 ? "No meetings yet." : "",
+    );
+
+    // The "Add action item" form picks its meeting from this dropdown
+    var select = document.getElementById("itemMeeting");
+    select.textContent = "";
+    meetings.forEach(function (meeting) {
+        var option = document.createElement("option");
+        option.value = meeting.id;
+        option.textContent = meeting.title;
+        select.appendChild(option);
+    });
+}
+
+function showActionItems() {
+    // Highlight the selected button
+    Object.keys(GROUP_NAMES).forEach(function (group) {
+        document.getElementById("filter-" + group).className =
+            group === selectedGroup ? FILTER_ON : FILTER_OFF;
+    });
+
+    var body = document.getElementById("actionsBody");
+    body.textContent = "";
+    var count = 0;
+    actionItems.forEach(function (item) {
+        var group = getActionGroup(item);
+        if (group !== selectedGroup) return;
+        var row = document.createElement("tr");
+        row.className = "border-b border-slate-100";
+        addCell(row, item.description);
+        addCell(row, item.due_date.slice(0, 10));
+        addStatusDropdown(row, item);
+        body.appendChild(row);
+        count++;
+    });
+    setMessage(
+        "actionsStatus",
+        count === 0
+            ? "No " +
+                  GROUP_NAMES[selectedGroup].toLowerCase() +
+                  " action items."
+            : "",
+    );
+}
+
+// Called by the Open / Overdue / Completed buttons
+function showGroup(group) {
+    selectedGroup = group;
+    showActionItems();
+}
+
+function loadLists() {
+    setMessage("meetingsStatus", "Loading meetings...");
+    setMessage("actionsStatus", "Loading action items...");
+
+    requestAPI("/meetings")
+        .then(showMeetings)
+        .catch(function (error) {
+            setMessage(
+                "meetingsStatus",
+                "Could not load meetings: " + error.message,
+            );
+        });
+
+    requestAPI("/action-items")
+        .then(function (items) {
+            actionItems = items;
+            showActionItems();
+        })
+        .catch(function (error) {
+            setMessage(
+                "actionsStatus",
+                "Could not load action items: " + error.message,
+            );
+        });
+}
+
+// Remove the lists from the page when the user signs out
+function clearLists() {
+    actionItems = [];
+    document.getElementById("meetingsBody").textContent = "";
+    document.getElementById("actionsBody").textContent = "";
+    setMessage("meetingsStatus", "");
+    setMessage("actionsStatus", "");
+}
+
+// ---------- Create meeting, add action item, change status ----------
+
+// Sends a change to the API, then reloads the lists.
+// Shows an error if it fails. Resolves to true if it worked, false if not.
+function saveChange(path, method, data, errorId) {
+    setMessage(errorId, "");
+    return requestAPI(path, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    })
+        .then(function () {
+            loadLists();
+            return true;
+        })
+        .catch(function (error) {
+            setMessage(errorId, "Could not save: " + error.message);
+            return false;
+        });
+}
+
+function createMeeting(event) {
+    event.preventDefault();
+    var form = event.target;
+    saveChange(
+        "/meetings",
+        "POST",
+        {
+            title: document.getElementById("meetingTitle").value,
+            meeting_date: document.getElementById("meetingDate").value,
+        },
+        "meetingFormError",
+    ).then(function (saved) {
+        if (saved) form.reset();
+    });
+}
+
+function addActionItem(event) {
+    event.preventDefault();
+    var form = event.target;
+    saveChange(
+        "/action-items",
+        "POST",
+        {
+            meeting_id: document.getElementById("itemMeeting").value,
+            description: document.getElementById("itemDescription").value,
+            assignee_email: document.getElementById("itemAssignee").value,
+            due_date: document.getElementById("itemDueDate").value,
+        },
+        "itemFormError",
+    ).then(function (saved) {
+        if (saved) form.reset();
+    });
+}
+
+// The Status cell is a dropdown, so a team member can change their own item
+function addStatusDropdown(row, item) {
+    var cell = document.createElement("td");
+    cell.className = "px-3 py-2";
+    var select = document.createElement("select");
+    select.className = "rounded border border-slate-300 px-2 py-1";
+    [
+        ["open", "Open"],
+        ["in_progress", "In progress"],
+        ["completed", "Completed"],
+    ].forEach(function (choice) {
+        var option = document.createElement("option");
+        option.value = choice[0];
+        option.textContent = choice[1];
+        option.selected = choice[0] === item.status;
+        select.appendChild(option);
+    });
+    select.onchange = function () {
+        saveChange(
+            "/action-items/" + item.id,
+            "PATCH",
+            { status: select.value },
+            "actionsStatus",
+        ).then(function (saved) {
+            if (!saved) select.value = item.status; // put the dropdown back
+        });
+    };
+    cell.appendChild(select);
+    row.appendChild(cell);
+}
+
+// auth.js calls these when the user signs in or out
+window.onSignedIn = loadLists;
+window.onSignedOut = clearLists;

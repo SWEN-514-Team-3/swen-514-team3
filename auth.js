@@ -15,6 +15,9 @@
     login.hidden = active;
     logout.hidden = !active;
     identity.textContent = active ? "Signed in as " + (user.profile.email || user.profile.sub) : "Signed out";
+    // Tell main.js to load the lists after sign in, or clear them after sign out.
+    if (active && window.onSignedIn) window.onSignedIn();
+    if (!active && window.onSignedOut) window.onSignedOut();
   }
   function showError(text) { message.textContent = text; }
   render(null);
