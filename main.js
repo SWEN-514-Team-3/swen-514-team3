@@ -158,9 +158,11 @@ function showActionItems() {
   actionItems.forEach(function (item) {
     var group = getActionGroup(item);
     if (group !== selectedGroup) return;
+    if (document.getElementById("onlyMine").checked && !item.mine) return;
     var row = document.createElement("tr");
     row.className = "border-b border-slate-100";
     addCell(row, item.description);
+    addCell(row, item.assignee);
     addCell(row, item.due_date.slice(0, 10));
     addStatusDropdown(row, item);
     body.appendChild(row);

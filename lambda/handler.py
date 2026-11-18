@@ -62,6 +62,20 @@ def database():
     return _conn
 
 
+def current_user(event):
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
+    email = (claims.get("email") or "").strip().lower()
+    if not email:
+        return None
+    name = claims.get("name") or email.split("@")[0]
+    rows = database().run(
+        "INSERT INTO users (name, email, user_type, cognito_sub) VALUES (:name, :email, 'member', :sub) "
+        "ON CONFLICT (email) DO UPDATE SET cognito_sub = COALESCE(users.cognito_sub, EXCLUDED.cognito_sub) "
+        "RETURNING id, name",
+        name=name, email=email, sub=claims.get("sub"))
+    return {"id": rows[0][0], "name": rows[0][1]}
+
+
 def list_meetings(event):
     rows = database().run("SELECT id, title, meeting_date FROM meetings ORDER BY meeting_date DESC")
     return response(200, [{"id": str(r[0]), "title": r[1], "meeting_date": r[2].isoformat()} for r in rows])
@@ -76,12 +90,10 @@ def create_meeting(event):
         if not users:
             return response(400, {"error": "No user has the email " + email + "."})
         participant_ids.append(users[0][0])
-    # Every new meeting is owned by the owner user.
-    owner = database().run("SELECT id FROM users WHERE user_type = 'owner' LIMIT 1")
     rows = database().run(
         "INSERT INTO meetings (title, meeting_date, owner_id, agenda) "
         "VALUES (:title, CAST(:date AS timestamptz), :owner, :agenda) RETURNING id",
-        title=body.get("title"), date=body.get("meeting_date"), owner=owner[0][0],
+        title=body.get("title"), date=body.get("meeting_date"), owner=event["user"]["id"],
         agenda=body.get("agenda"))
     meeting_id = rows[0][0]
     for user_id in participant_ids:
@@ -130,12 +142,10 @@ def create_decision(event):
     description = (body.get("description") or "").strip()
     if not description:
         return response(400, {"error": "Enter a decision first."})
-    # Decisions are written by the owner user
-    owner = database().run("SELECT id FROM users WHERE user_type = 'owner' LIMIT 1")
     rows = database().run(
         "INSERT INTO decisions (meeting_id, description, author_id) "
         "VALUES (CAST(:meeting AS uuid), :description, :author) RETURNING id",
-        meeting=event["pathParameters"]["id"], description=description, author=owner[0][0])
+        meeting=event["pathParameters"]["id"], description=description, author=event["user"]["id"])
     return response(200, {"id": str(rows[0][0])})
 
 
@@ -211,9 +221,12 @@ def search_history(event):
 
 
 def list_action_items(event):
-    rows = database().run("SELECT id, description, due_date, status FROM action_items ORDER BY due_date")
-    return response(200, [{"id": str(r[0]), "description": r[1], "due_date": str(r[2]), "status": r[3]}
-                          for r in rows])
+    rows = database().run(
+        "SELECT a.id, a.description, a.due_date, a.status, u.name, a.owner_id = CAST(:me AS uuid) "
+        "FROM action_items a JOIN users u ON u.id = a.owner_id ORDER BY a.due_date",
+        me=str(event["user"]["id"]))
+    return response(200, [{"id": str(r[0]), "description": r[1], "due_date": str(r[2]), "status": r[3],
+                           "assignee": r[4], "mine": r[5]} for r in rows])
 
 
 def create_action_item(event):
@@ -260,6 +273,10 @@ def handle_data_route(route, event):
     # API Gateway has already checked that the user is signed in.
     global _conn
     try:
+        if "requestContext" in event:
+            event["user"] = current_user(event)
+            if event["user"] is None:
+                return response(401, {"error": "Please sign in again."})
         return DATA_ROUTES[route](event)
     except Exception:
         LOGGER.exception("Database request failed: %s", route)

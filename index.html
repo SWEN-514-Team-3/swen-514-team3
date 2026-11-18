@@ -77,11 +77,12 @@
         <button id="filter-overdue" type="button" onclick="showGroup('overdue')" class="rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300">Overdue</button>
         <button id="filter-completed" type="button" onclick="showGroup('completed')" class="rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300">Completed</button>
       </div>
+      <label class="mb-3 block text-sm"><input id="onlyMine" type="checkbox" checked onchange="showActionItems()"> Only items assigned to me</label>
       <p id="actionsStatus" class="mb-3 text-sm text-slate-500"></p>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse text-left text-sm">
           <thead>
-            <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Description</th><th class="px-3 py-2 font-medium">Due</th><th class="px-3 py-2 font-medium">Status</th></tr>
+            <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Description</th><th class="px-3 py-2 font-medium">Assigned to</th><th class="px-3 py-2 font-medium">Due</th><th class="px-3 py-2 font-medium">Status</th></tr>
           </thead>
           <tbody id="actionsBody"></tbody>
         </table>
