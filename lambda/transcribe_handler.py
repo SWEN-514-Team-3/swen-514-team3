@@ -107,14 +107,11 @@ def lambda_handler(event, context):
             data = json.loads(obj["Body"].read().decode("utf-8"))
             transcript_text = data["results"]["transcripts"][0]["transcript"]
 
-            transcript_timestamped = ""
+            transcript_timestamped = transcript_text + "\n\nTimestamps:\n"
             audio_segments = data["results"]["audio_segments"]
             for segment in audio_segments:
                 built_line = f"{segment["start_time"]}-{segment["end_time"]}: {segment["transcript"]} \n"
                 transcript_timestamped += built_line
-
-            if not transcript_timestamped:
-                transcript_timestamped = transcript_text
 
             # return the transcript
             return response(200, {
