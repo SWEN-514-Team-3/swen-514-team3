@@ -110,7 +110,7 @@ def lambda_handler(event, context):
             transcript_timestamped = ""
             audio_segments = data["results"]["audio_segments"]
             for segment in audio_segments:
-                built_line = f"{segment["start_time"]}-{segment["end_time"]}: {segment["transcript"]}"
+                built_line = f"{segment["start_time"]}-{segment["end_time"]}: {segment["transcript"]} \n"
                 transcript_timestamped += built_line
 
             if not transcript_timestamped:
