@@ -325,12 +325,33 @@ function addCell(row, text) {
 
 function showMeetings(meetings) {
     var body = document.getElementById("meetingsBody");
+    var todayStr = today();
     body.textContent = "";
     meetings.forEach(function (meeting) {
         var row = document.createElement("tr");
         row.className = "border-b border-slate-100";
+        var meetingDate = meeting.meeting_date.slice(0, 10);
+
         addCell(row, meeting.title);
-        addCell(row, meeting.meeting_date.slice(0, 10));
+        addCell(row, meetingDate);
+
+        if (meetingDate === todayStr) {
+            var actionCell = document.createElement("td");
+            actionCell.className = "px-3 py-2";
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = "Join";
+            btn.className =
+                "rounded-lg bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700";
+            btn.onclick = function () {
+                joinMeeting(meeting.title);
+            };
+            actionCell.appendChild(btn);
+            row.appendChild(actionCell);
+        } else {
+            addCell(row, "—");
+        }
+
         body.appendChild(row);
     });
     setMessage(
