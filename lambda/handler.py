@@ -125,7 +125,11 @@ def handle_broadcast(event, context):
     TOPIC_ARN = os.environ.get("REMINDER_SNS_TOPIC_ARN")
     meeting_name = body.get("meetingName", "Untitled Meeting")
     summary = body.get("summary", "")
-    recipients = body.get("recipients", [])
+    recipients = body.get("recipients") or "Untitled meeting"
+
+    print(f"IAM CHECK: meeting name - {meeting_name}")
+    print(f"IAM CHECK: summary - {summary}")
+    print(f"IAM CHECK: email list - {recipients}")
 
     if not summary:
         return 400, {"error": "Missing summary text"}
