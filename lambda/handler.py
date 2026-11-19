@@ -118,6 +118,44 @@ DATA_ROUTES = {
 }
 
 
+sns = boto3.client("sns")
+TOPIC_ARN = os.environ("REMINDER_SNS_TOPIC_ARN")
+def handle_broadcast(body):
+    meeting_name = body.get("meetingName", "Untitled Meeting")
+    summary = body.get("summary", "")
+    recipients = body.get("recipients", [])
+
+    if not summary:
+        return 400, {"error": "Missing summary text"}
+
+    for email in recipients:
+        clean_email = email.strip()
+        if clean_email:
+            sns.subscribe(
+                TopicArn=TOPIC_ARN,
+                Protocol="email",
+                Endpoint=clean_email,
+            )
+
+    subject = f"Meeting Recap: {meeting_name}"[:99]
+    message = (
+        f"Meeting: {meeting_name}\n"
+        f"Recipients: {', '.join(recipients)}\n\n"
+        f"SUMMARY:\n{summary}"
+    )
+
+    response = sns.publish(
+        TopicArn=TOPIC_ARN,
+        Subject=subject,
+        Message=message,
+    )
+
+    return 200, {
+        "message": "Recap broadcast sent",
+        "messageId": response["MessageId"],
+    }
+
+
 def handle_data_route(route, event):
     # API Gateway has already checked that the user is signed in.
     global _conn
