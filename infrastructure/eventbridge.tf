@@ -1,19 +1,3 @@
-resource "aws_scheduler_schedule" "action_item_reminder_schedule" {
-  name       = "${var.project_name}-action-item-reminder-schedule"
-  group_name = "default"
-
-  flexible_time_window {
-    mode = "OFF"
-  }
-
-  schedule_expression = "None"
-
-  target {
-    arn      = aws_sns_topic.action_item_reminders.arn
-    role_arn = aws_iam_role.scheduler_sns_role.arn
-  }
-}
-
 resource "aws_iam_role_policy" "broadcast_sns_publish" {
   name = "${var.project_name}-broadcast-sns-publish"
   role = aws_iam_role.broadcast_lambda_role.id
@@ -23,7 +7,7 @@ resource "aws_iam_role_policy" "broadcast_sns_publish" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["sns:Publish", "sns:Subscribe"]
-      Resource = aws_sns_topic.action_item_reminders.arn
+      Resource = module.notifications.reminder_sns_topic_arn
     }]
   })
 }
@@ -39,6 +23,11 @@ resource "aws_iam_role" "broadcast_lambda_role" {
       Action    = "sts:AssumeRole"
     }]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "broadcast_lambda_logs" {
+  role       = aws_iam_role.broadcast_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy" "api_lambda_scheduler" {
@@ -61,7 +50,7 @@ resource "aws_iam_role_policy" "api_lambda_scheduler" {
       {
         Effect   = "Allow"
         Action   = ["iam:PassRole"]
-        Resource = aws_iam_role.scheduler_sns_role.arn
+        Resource = module.notifications.scheduler_sns_role_arn
       }
     ]
   })
@@ -80,7 +69,7 @@ resource "aws_lambda_function" "broadcast" {
 
   environment {
     variables = {
-      REMINDER_SNS_TOPIC_ARN = aws_sns_topic.action_item_reminders.arn
+      REMINDER_SNS_TOPIC_ARN = module.notifications.reminder_sns_topic_arn
     }
   }
 
