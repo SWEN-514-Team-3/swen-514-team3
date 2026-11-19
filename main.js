@@ -159,6 +159,31 @@ async function sendRecap() {
     }
 }
 
+// handle joining and leaving meetings
+function joinMeeting(title) {
+    document.getElementById("meeting-name").textContent = title;
+    document.getElementById("meeting-audio").value = "";
+
+    var tStatus = document.getElementById("transcription-status");
+    tStatus.className = "mt-1 text-sm text-slate-500";
+    tStatus.textContent = "Waiting for audio...";
+
+    var sStatus = document.getElementById("summarization-status");
+    sStatus.className = "mt-1 text-sm text-slate-500";
+    sStatus.textContent = "Waiting for meeting transcription...";
+
+    var bStatus = document.getElementById("broadcast-status");
+    bStatus.className = "mt-1 text-sm text-slate-500";
+    bStatus.textContent = "Waiting for meeting summary...";
+
+    document.getElementById("current-meeting").classList.remove("hidden");
+}
+
+function leaveMeeting() {
+    document.getElementById("current-meeting").classList.add("hidden");
+    document.getElementById("meeting-name").textContent = "";
+}
+
 async function runTranscribe() {
     var fileInput = document.getElementById("audioInput");
     var button = document.getElementById("runTranscribe");
