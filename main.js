@@ -44,6 +44,115 @@ function requestAPI(path, options) {
         });
 }
 
+async function sendRecap() {
+    // inputs
+    var meetingAudio = document.getElementById("meeting-audio");
+    var emailList = document.getElementById("email-list");
+    var meetingName = document.getElementById("meeting-name");
+
+    // status labels for sending process
+    var transcriptionStatus = document.getElementById("transcribe-meeting");
+    var summarizationStatus = document.getElementById("summarize-meeting");
+    var broadcastStatus = document.getElementById("broadcast-status");
+
+    var file = meetingAudio.files[0];
+    var currentStep = "transcription";
+
+    try {
+        // initial statuses
+        transcriptionStatus.className = "mt-3 text-sm text-blue-600";
+        transcriptionStatus.textContent = "Reading audio file...";
+
+        summarizationStatus.className = "mt-3 text-sm text-slate-600";
+        summarizationStatus.textContent = "Waiting for meeting transcription...";
+
+        broadcastStatus.className = "mt-3 text-sm text-slate-600";
+        broadcastStatus.textContent = "Waiting for meeting summary...";
+
+        // run transcribe
+        var arrayBuffer = await file.arrayBuffer();
+        var transcribeResult = await requestAPI(
+            "/transcribe?filename=" + encodeURIComponent(file.name),
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/octet-stream",
+                },
+                body: arrayBuffer,
+            },
+        );
+
+        var transcriptionText = transcribeResult.transcript;
+        transcriptionStatus.className = "mt-3 text-sm text-green-600";
+        transcriptionStatus.textContent = "Transcription completed.";
+        
+        // run bedrock summarizer
+        currentStep = "summarization"
+        summarizationStatus.className = "mt-3 text-sm text-blue-600";
+        summarizationStatus.textContent = "Summarizing the meeting transcription...";
+        var aiSampleResult = await requestAPI(
+            "/ai-sample", 
+            {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                text: transcriptionText, 
+                approved: true
+            })
+        });
+
+        var summaryText = aiSampleResult.result
+        summarizationStatus.className = "mt-3 text-sm text-green-600";
+        summarizationStatus.textContent = "Summary generated.";
+
+        // run SNS broadcast
+        currentStep = "broadcast";
+        broadcastStatus.className = "mt-3 text-sm text-blue-600";
+        broadcastStatus.textContent = "Broadcasting the summary to team members...";
+
+        var emails = emailList.value.split(",").map(function (e) {return e.trim();}).filter(Boolean);
+
+        var broadcastResult = await requestAPI(
+            "/broadcast",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    meetingName: meetingName,
+                    summary: summaryText,
+                    recipients: emails
+                })
+            }
+        )
+
+        broadcastStatus.className = "mt-3 text-sm text-green-600";
+        broadcastStatus.textContent = "Emails sent succesfully.";
+
+        
+    } catch (error) {
+        console.error("Error during " + currentStep + ":", error);
+        var errorMessage = error && error.message ? error.message : "An unexpected error occurred.";
+
+        if (currentStep === "transcription") {
+            transcriptionStatus.className = "mt-3 text-sm text-red-600";
+            transcriptionStatus.textContent = "Transcription failed: " + errorMessage;
+            summarizationStatus.textContent = "Canceled.";
+            broadcastStatus.textContent = "Canceled.";
+        } else if (currentStep === "summarization") {
+            summarizationStatus.className = "mt-3 text-sm text-red-600";
+            summarizationStatus.textContent = "Summarization failed: " + errorMessage;
+            broadcastStatus.textContent = "Canceled.";
+        } else if (currentStep === "broadcast") {
+            broadcastStatus.className = "mt-3 text-sm text-red-600";
+            broadcastStatus.textContent = "Broadcast failed: " + errorMessage;
+        }
+    }
+}
+
 async function runTranscribe() {
     var fileInput = document.getElementById("audioInput");
     var button = document.getElementById("runTranscribe");
