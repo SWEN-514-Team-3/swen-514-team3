@@ -46,13 +46,13 @@ function requestAPI(path, options) {
 
 async function sendRecap() {
     // inputs
-    var meetingAudio = document.getElementById("meeting-Audio");
+    var meetingAudio = document.getElementById("meeting-audio");
     var emailList = document.getElementById("email-list");
     var meetingName = document.getElementById("meeting-name");
 
     // status labels for sending process
-    var transcriptionStatus = document.getElementById("transcribe-meeting");
-    var summarizationStatus = document.getElementById("summarize-meeting");
+    var transcriptionStatus = document.getElementById("transcription-status");
+    var summarizationStatus = document.getElementById("summarization-status");
     var broadcastStatus = document.getElementById("broadcast-status");
 
     var file = meetingAudio.files[0];
