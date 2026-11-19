@@ -118,9 +118,11 @@ DATA_ROUTES = {
 }
 
 
-sns = boto3.client("sns")
-TOPIC_ARN = os.environ("REMINDER_SNS_TOPIC_ARN")
-def handle_broadcast(body):
+
+def handle_broadcast(event, context):
+    body = json.loads(event.get("body"))
+    sns = boto3.client("sns")
+    TOPIC_ARN = os.environ.get("REMINDER_SNS_TOPIC_ARN")
     meeting_name = body.get("meetingName", "Untitled Meeting")
     summary = body.get("summary", "")
     recipients = body.get("recipients", [])
