@@ -34,12 +34,6 @@ output "lambda_security_group_id" {
 output "database_security_group_id" {
   value = module.networking.database_security_group_id
 }
-output "lambda_execution_role_arn" {
-  value = module.lambda_test.execution_role_arn
-}
-output "network_test_function_name" {
-  value = module.lambda_test.function_name
-}
 
 output "cognito_pool_id" { value = module.authentication.pool_id }
 

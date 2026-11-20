@@ -68,12 +68,11 @@ resource "aws_apigatewayv2_authorizer" "cognito" {
   }
 }
 resource "aws_apigatewayv2_route" "ai" {
-  api_id               = aws_apigatewayv2_api.http.id
-  route_key            = "POST /ai-sample"
-  target               = "integrations/${aws_apigatewayv2_integration.lambda.id}"
-  authorization_type   = "JWT"
-  authorizer_id        = aws_apigatewayv2_authorizer.cognito.id
-  authorization_scopes = ["openid"]
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "POST /ai-sample"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 output "bedrock_model_id" { value = var.bedrock_model_id }
 
