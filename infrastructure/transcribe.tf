@@ -1,18 +1,40 @@
 # bucket for temporary file use
-resource "aws_s3_bucket" "recordings_bucket" {
-  bucket        = "audio-drop-bucket"
-  force_destroy = true
+# resource "aws_s3_bucket" "recordings_bucket" {
+#   bucket        = "audio-drop-bucket"
+#   force_destroy = true
 
-  tags = {
-    Name        = "MyBucket"
-    Environment = "Dev"
+#   tags = {
+#     Name        = "MyBucket"
+#     Environment = "Dev"
+#   }
+# }
+
+variable "recordings_bucket_name" {
+  description = "Optional exact name for the frontend S3 bucket;"
+  type        = string
+  default     = null
+}
+
+variable "recordings_bucket_prefix" {
+  description = "Prefix for Terraform-generated bucket names (at most 35 characters)."
+  type        = string
+  default     = "meeting-momentum-recordings-"
+  validation {
+    condition     = length(var.bucket_prefix) <= 35
+    error_message = "The bucket prefix must be at most 35 characters to leave room for Terraform's suffix."
   }
+}
+
+# updated bucket
+resource "aws_s3_bucket" "recordings_bucket" {
+  bucket        = var.recordings_bucket_name
+  bucket_prefix = var.recordings_bucket_name == null ? var.recordings_bucket_prefix : null
+  force_destroy = true
 }
 
 # folder recordings get dropped into
 resource "aws_s3_object" "folder1" {
   bucket = aws_s3_bucket.recordings_bucket.id
-  acl    = "private"
   key    = "recordings/"
 }
 
