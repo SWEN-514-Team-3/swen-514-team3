@@ -10,6 +10,15 @@ resource "aws_s3_bucket" "recordings_bucket" {
   }
 }
 
+# Included primary-AI sample, deployed automatically by Setup.
+resource "aws_s3_object" "sample_recording" {
+  bucket       = aws_s3_bucket.recordings_bucket.id
+  key          = "samples/Recording.m4a"
+  source       = "${path.root}/../Recording.m4a"
+  etag         = filemd5("${path.root}/../Recording.m4a")
+  content_type = "audio/mp4"
+}
+
 # folder recordings get dropped into
 resource "aws_s3_object" "folder1" {
   bucket = aws_s3_bucket.recordings_bucket.id

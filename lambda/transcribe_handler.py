@@ -65,22 +65,28 @@ def lambda_handler(event, context):
                                   'service': 'aws-transcribe', 'transcriptPath': key,
                                   'transcript': transcript})
 
-        filename = (event.get('queryStringParameters') or {}).get('filename', 'audio.m4a')
-        extension = filename.rsplit('.', 1)[-1].lower()
-        if extension not in ('mp3', 'mp4', 'm4a', 'wav', 'flac', 'ogg', 'amr', 'webm'):
-            return response(400, {'error': 'Unsupported media format.'})
-        raw_body = event.get('body') or ''
-        try:
-            audio = base64.b64decode(raw_body, validate=True) if event.get('isBase64Encoded') else (
-                raw_body.encode('utf-8') if isinstance(raw_body, str) else raw_body
-            )
-        except (ValueError, TypeError):
-            return response(400, {'error': 'Invalid audio payload.'})
-        if not audio:
-            return response(400, {'error': 'No audio file payload received.'})
+        params = event.get('queryStringParameters') or {}
+        use_sample = params.get('sample') == 'true'
         job_id = job_prefix(user_id) + uuid.uuid4().hex
-        key = f'recordings/{job_id}.{extension}'
-        s3.put_object(Bucket=BUCKET_NAME, Key=key, Body=audio)
+        if use_sample:
+            extension = 'm4a'
+            key = 'samples/Recording.m4a'
+        else:
+            filename = (event.get('queryStringParameters') or {}).get('filename', 'audio.m4a')
+            extension = filename.rsplit('.', 1)[-1].lower()
+            if extension not in ('mp3', 'mp4', 'm4a', 'wav', 'flac', 'ogg', 'amr', 'webm'):
+                return response(400, {'error': 'Unsupported media format.'})
+            raw_body = event.get('body') or ''
+            try:
+                audio = base64.b64decode(raw_body, validate=True) if event.get('isBase64Encoded') else (
+                    raw_body.encode('utf-8') if isinstance(raw_body, str) else raw_body
+                )
+            except (ValueError, TypeError):
+                return response(400, {'error': 'Invalid audio payload.'})
+            if not audio:
+                return response(400, {'error': 'No audio file payload received.'})
+            key = f'recordings/{job_id}.{extension}'
+            s3.put_object(Bucket=BUCKET_NAME, Key=key, Body=audio)
         transcribe.start_transcription_job(
             TranscriptionJobName=job_id,
             Media={'MediaFileUri': f's3://{BUCKET_NAME}/{key}'},

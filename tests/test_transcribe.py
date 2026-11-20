@@ -32,6 +32,14 @@ class TranscribeTests(unittest.TestCase):
         self.assertEqual(self.s3.put_object.call_args.kwargs['Bucket'], 'unique-recordings-test')
         self.assertEqual(self.transcribe.start_transcription_job.call_args.kwargs['OutputBucketName'], 'unique-recordings-test')
 
+    def test_sample_uses_deployed_object_without_upload(self):
+        status, body = self.call('POST /transcribe', queryStringParameters={'sample': 'true'})
+        self.assertEqual(status, 202)
+        self.s3.put_object.assert_not_called()
+        args = self.transcribe.start_transcription_job.call_args.kwargs
+        self.assertEqual(args['Media']['MediaFileUri'], 's3://unique-recordings-test/samples/Recording.m4a')
+        self.assertEqual(args['MediaFormat'], 'm4a')
+
     def test_other_user_is_denied_before_aws_call(self):
         self.assertEqual(self.call(user='bob')[0], 404)
         self.transcribe.get_transcription_job.assert_not_called()

@@ -43,3 +43,10 @@ test('scoped transcription and broadcast requests use access tokens', async()=>{
     await context.requestAPI(path);
   }
 });
+
+test('sample transcription starts without a local upload and polls normally', async()=>{
+  const {context,calls}=setup([{jobId:'sample-job'},{status:'completed',transcript:'Sample text'}]);
+  assert.equal((await context.transcribeAudio(null,true)).transcript,'Sample text');
+  assert.equal(calls[0].path,'/transcribe?sample=true');
+  assert.equal(calls[0].options.body,undefined);
+});

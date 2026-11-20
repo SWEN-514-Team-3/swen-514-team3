@@ -46,11 +46,12 @@ function requestAPI(path, options) {
         });
 }
 
-async function transcribeAudio(file) {
-    const data = await requestAPI('/transcribe?filename=' + encodeURIComponent(file.name), {
+async function transcribeAudio(file, useSample = false) {
+    const path = useSample ? '/transcribe?sample=true' : '/transcribe?filename=' + encodeURIComponent(file.name);
+    const data = await requestAPI(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/octet-stream' },
-        body: await file.arrayBuffer(),
+        body: useSample ? undefined : await file.arrayBuffer(),
     });
     if (!data.jobId) throw new Error('The transcription service did not return a job ID.');
     // Each status check is a separate request; no Lambda waits for the job.
@@ -198,25 +199,27 @@ function leaveMeeting() {
     document.getElementById("meeting-name").textContent = "";
 }
 
-async function runTranscribe() {
+async function runTranscribe(useSample = false) {
     var fileInput = document.getElementById("audioInput");
     var button = document.getElementById("runTranscribe");
     var status = document.getElementById("transcribeStatus");
     var result = document.getElementById("transcribeResult");
 
     var file = fileInput.files[0];
-    if (!file) {
+    if (!file && !useSample) {
         status.className = "mt-3 text-sm text-red-600";
         status.textContent = "Please select an audio file first.";
         return;
     }
+    const sampleButton = document.getElementById("runSampleTranscribe");
     button.disabled = true;
+    if (sampleButton) sampleButton.disabled = true;
     status.className = "mt-3 text-sm text-blue-600";
     status.textContent = "Reading audio file...";
 
     try {
         status.textContent = "Transcribing audio file...";
-        var data = await transcribeAudio(file);
+        var data = await transcribeAudio(file, useSample);
         result.value = data.transcript;
         status.className = "mt-3 text-sm text-green-600";
         status.textContent = "Transcription completed.";
@@ -225,6 +228,7 @@ async function runTranscribe() {
         status.textContent = "Error: " + error.message;
     } finally {
         button.disabled = false;
+        if (sampleButton) sampleButton.disabled = false;
     }
 }
 
