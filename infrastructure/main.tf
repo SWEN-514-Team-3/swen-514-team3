@@ -16,14 +16,6 @@ module "database" {
   security_group_id = module.networking.database_security_group_id
 }
 
-module "lambda_test" {
-  source                   = "./modules/lambda_test"
-  name                     = var.project_name
-  subnet_ids               = module.networking.private_subnet_ids
-  security_group_id        = module.networking.lambda_security_group_id
-  permissions_boundary_arn = var.lambda_permissions_boundary_arn
-}
-
 module "authentication" {
   source      = "./modules/authentication"
   name        = var.project_name
@@ -103,6 +95,7 @@ resource "aws_lambda_function" "api" {
       DB_HOST          = module.database.db_endpoint
       DB_NAME          = "meetingmomentum"
       DB_SECRET_ARN    = module.database.db_secret_arn
+      SNS_TOPIC_ARN    = module.notifications.reminder_sns_topic_arn
     }
   }
 
@@ -110,7 +103,8 @@ resource "aws_lambda_function" "api" {
     aws_iam_role_policy_attachment.lambda_logs,
     aws_iam_role_policy.lambda_db_secret,
     aws_iam_role_policy.lambda_bedrock,
-    aws_vpc_endpoint.bedrock
+    aws_vpc_endpoint.bedrock,
+    aws_vpc_endpoint.sns
   ]
 }
 
@@ -165,7 +159,7 @@ resource "aws_apigatewayv2_api" "http" {
       module.frontend.website_url
     ]
     allow_methods = [
-      "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
+      "GET", "POST", "PUT", "PATCH", "OPTIONS"
     ]
     allow_headers = [
       "Content-Type", "Authorization"
@@ -203,8 +197,7 @@ resource "aws_apigatewayv2_route" "meetings" {
     "GET /meetings",
     "POST /meetings",
     "GET /meetings/{id}",
-    "PUT /meetings/{id}",
-    "DELETE /meetings/{id}"
+    "PUT /meetings/{id}"
   ])
 
   api_id             = aws_apigatewayv2_api.http.id

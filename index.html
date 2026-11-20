@@ -14,7 +14,6 @@
       <nav class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
         <a href="#meetings" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">Meetings</a>
         <a href="#actions" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">My Action Items</a>
-        <a href="#backend" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">Backend Test</a>
         <a href="#transcribe" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">Audio Transcription</a>
         <a href="#ai" class="rounded text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">AI Demo</a>
       </nav>
@@ -37,6 +36,8 @@
       <form onsubmit="createMeeting(event)" class="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
         <label class="text-sm">Title<br><input id="meetingTitle" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
         <label class="text-sm">Date<br><input id="meetingDate" type="date" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <label class="text-sm">Agenda<br><input id="meetingAgenda" class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <label class="text-sm">Participants (emails, separated by commas)<br><input id="meetingParticipants" class="mt-1 w-72 rounded border border-slate-300 px-2 py-1.5"></label>
         <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Create meeting</button>
       </form>
       <p id="meetingFormError" class="mt-2 text-sm text-red-600"></p>
@@ -87,6 +88,34 @@
       <p id="broadcast-status" class="mt-1 text-sm text-slate-500">Waiting for meeting summary...</p>      
     </div>
 
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="meetingDetail" hidden>
+      <h2 id="detailTitle" class="mb-1 text-lg font-semibold text-slate-900"></h2>
+      <p id="detailInfo" class="mb-3 text-sm text-slate-500"></p>
+      <label for="detailAgenda" class="block text-sm font-medium">Agenda</label>
+      <textarea id="detailAgenda" readonly class="mb-3 mt-1 h-16 w-full rounded border border-slate-300 p-2 text-sm"></textarea>
+      <label for="detailNotes" class="block text-sm font-medium">Meeting notes</label>
+      <textarea id="detailNotes" class="mt-1 h-28 w-full rounded border border-slate-300 p-2 text-sm"></textarea>
+      <button type="button" onclick="saveNotes()" class="mt-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Save notes</button>
+      <p id="notesMessage" class="mt-2 text-sm text-slate-500"></p>
+      <h3 class="mb-2 mt-4 text-sm font-semibold">Decisions</h3>
+      <ul id="decisionList" class="list-disc space-y-1 pl-5 text-sm"></ul>
+      <form onsubmit="addDecision(event)" class="mt-3 flex flex-wrap items-end gap-3">
+        <label class="text-sm">New decision<br><input id="decisionText" required class="mt-1 w-80 rounded border border-slate-300 px-2 py-1.5"></label>
+        <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Record decision</button>
+      </form>
+      <p id="decisionError" class="mt-2 text-sm text-red-600"></p>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="history">
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">Search meeting history</h2>
+      <form onsubmit="searchHistory(event)" class="flex flex-wrap items-end gap-3">
+        <label class="text-sm">Search<br><input id="searchText" required class="mt-1 rounded border border-slate-300 px-2 py-1.5"></label>
+        <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Search</button>
+      </form>
+      <p id="searchStatus" class="mt-2 text-sm text-slate-500"></p>
+      <ul id="searchResults" class="mt-2 list-disc space-y-1 pl-5 text-sm"></ul>
+    </div>
+
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="actions">
       <h2 class="mb-4 text-lg font-semibold text-slate-900">My Action Items</h2>
       <div class="mb-3 flex flex-wrap gap-2">
@@ -94,11 +123,12 @@
         <button id="filter-overdue" type="button" onclick="showGroup('overdue')" class="rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300">Overdue</button>
         <button id="filter-completed" type="button" onclick="showGroup('completed')" class="rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300">Completed</button>
       </div>
+      <label class="mb-3 block text-sm"><input id="onlyMine" type="checkbox" checked onchange="showActionItems()"> Only items assigned to me</label>
       <p id="actionsStatus" class="mb-3 text-sm text-slate-500"></p>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse text-left text-sm">
           <thead>
-            <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Description</th><th class="px-3 py-2 font-medium">Due</th><th class="px-3 py-2 font-medium">Status</th></tr>
+            <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th class="px-3 py-2 font-medium">Description</th><th class="px-3 py-2 font-medium">Assigned to</th><th class="px-3 py-2 font-medium">Due</th><th class="px-3 py-2 font-medium">Status</th></tr>
           </thead>
           <tbody id="actionsBody"></tbody>
         </table>
@@ -113,10 +143,12 @@
       <p id="itemFormError" class="mt-2 text-sm text-red-600"></p>
     </div>
 
-    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="backend">
-      <h2 class="mb-4 text-lg font-semibold text-slate-900">Backend Test</h2>
-      <button type="button" onclick="testBackend()" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Call Backend</button>
-      <pre id="backendResult" class="mt-4 whitespace-pre-wrap break-words rounded-lg bg-slate-100 p-3 font-mono text-sm text-slate-700">No result yet.</pre>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="reminders">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900">Reminders</h2>
+      <p class="mb-3 text-sm text-slate-500">EventBridge Scheduler sends these once a day. Use the button to send them now.</p>
+      <button type="button" onclick="sendReminders()" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Send reminders now</button>
+      <p id="reminderStatus" class="mt-2 text-sm text-slate-500"></p>
+      <ul id="reminderList" class="mt-2 list-disc space-y-1 pl-5 text-sm"></ul>
     </div>
 
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="transcribe">
@@ -135,11 +167,16 @@
 
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="ai">
       <h2 class="mb-4 text-lg font-semibold text-slate-900">Meeting summary and action drafts</h2>
+      <label class="mb-3 block text-sm">Meeting<br><select id="aiMeeting" class="mt-1 rounded border border-slate-300 px-2 py-1.5"></select></label>
       <label for="aiInput" class="sr-only">Sample text</label>
       <textarea id="aiInput" class="block h-20 w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" maxlength="12000">On October 19, the team agreed to demonstrate login and meeting summaries at check-in. Alex will prepare sample meeting notes by October 22. Sam will test logout by October 23. The team decided to keep generated action items as drafts until reviewed.</textarea>
       <label class="mt-3 block text-sm"><input id="aiApproved" type="checkbox"> I have reviewed and approved this meeting text.</label>
       <button id="runAI" type="button" onclick="runAI()" class="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Generate draft</button>
       <p id="aiStatus" role="status" aria-live="polite" class="mt-3 text-sm">Approve the source text to generate a draft.</p><label for="aiResult" class="mt-3 block text-sm">Editable draft</label><textarea id="aiResult" class="mt-2 h-64 w-full rounded border border-slate-300 p-3" placeholder="Generated summary and proposed actions will appear here."></textarea>
+      <div id="aiReview" hidden class="mt-3 flex flex-wrap gap-3">
+        <button type="button" onclick="reviewAI('accepted')" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white">Accept draft</button>
+        <button type="button" onclick="reviewAI('corrected')" class="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-medium text-white">Save my corrections</button>
+      </div>
     </div>
 
   </main>
