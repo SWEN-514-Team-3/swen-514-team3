@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import ssl
+import re
 
 import boto3
 from botocore.config import Config
@@ -158,11 +159,13 @@ def send_reminders(event):
         "FROM action_items a JOIN users u ON u.id = a.owner_id JOIN meetings m ON m.id = a.meeting_id "
         "WHERE a.status <> 'completed' AND a.due_date <= CURRENT_DATE + 1 ORDER BY a.due_date")
     sns = boto3.client("sns", config=Config(connect_timeout=3, retries={"total_max_attempts": 2}))
+    check_notification_filters(sns, os.environ["SNS_TOPIC_ARN"])
     sent = []
     for r in rows:
         message = ("Hi " + r[2] + ", your action item \"" + r[0] + "\" from " + r[4] +
                    " is due on " + str(r[1]) + ". Please update its status.")
-        sns.publish(TopicArn=os.environ["SNS_TOPIC_ARN"], Subject="Action item reminder", Message=message)
+        sns.publish(TopicArn=os.environ["SNS_TOPIC_ARN"], Subject="Action item reminder", Message=message,
+                    MessageAttributes=recipient_attributes([r[3].strip().lower()]))
         sent.append({"owner": r[2], "description": r[0], "due_date": str(r[1])})
     return response(200, {"sent": len(sent), "reminders": sent})
 
@@ -270,75 +273,94 @@ DATA_ROUTES = {
 
 
 
+def recipient_attributes(emails):
+    return {"recipient": {"DataType": "String.Array", "StringValue": json.dumps(emails)}}
+
+
+def check_notification_filters(sns, topic):
+    # Fail closed on legacy subscriptions: otherwise an unfiltered subscriber
+    # would receive every message, regardless of the recipient attributes.
+    for page in sns.get_paginator("list_subscriptions_by_topic").paginate(TopicArn=topic):
+        for subscription in page["Subscriptions"]:
+            arn = subscription["SubscriptionArn"]
+            if arn == "PendingConfirmation":
+                continue
+            attrs = sns.get_subscription_attributes(SubscriptionArn=arn)["Attributes"]
+            expected = {"recipient": [subscription["Endpoint"].strip().lower()]}
+            if (subscription["Protocol"] != "email" or
+                    json.loads(attrs.get("FilterPolicy", "{}")) != expected or
+                    attrs.get("FilterPolicyScope", "MessageAttributes") != "MessageAttributes"):
+                raise ValueError("Notification subscriptions need recipient filters before messages can be sent.")
+
+
 def handle_broadcast(event, context):
     if event.get("source") == os.environ["RECAP_EVENT_SOURCE"] and event.get("detail-type") == "GeneratedMeetingRecap":
         return handle_recap_event(event)
+    try:
+        body = json.loads(event.get("body") or "{}")
+        if not isinstance(body, dict):
+            raise ValueError("Invalid request.")
+        summary = body.get("summary")
+        recipients = body.get("recipients")
+        if not isinstance(summary, str) or not summary.strip():
+            raise ValueError("Enter a summary first.")
+        if not isinstance(recipients, list) or not 1 <= len(recipients) <= 20:
+            raise ValueError("Enter between 1 and 20 recipient email addresses.")
+        if any(not isinstance(email, str) or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email.strip()) for email in recipients):
+            raise ValueError("Enter valid recipient email addresses.")
+        recipients = sorted({email.strip().lower() for email in recipients})
+        meeting_name = body.get("meetingName", "Untitled Meeting")
+        if not isinstance(meeting_name, str):
+            raise ValueError("Invalid meeting name.")
+    except (ValueError, TypeError):
+        return response(400, {"error": "Enter valid meeting text and between 1 and 20 recipient email addresses."})
 
-    body = json.loads(event.get("body"))
     sns = boto3.client("sns")
-    eventbridge = boto3.client("events")
-    TOPIC_ARN = os.environ.get("REMINDER_SNS_TOPIC_ARN")
-
-    meeting_name = body.get("meetingName", "Untitled Meeting")
-    summary = body.get("summary", "")
-    recipients = body.get("recipients") or "Untitled meeting"
-
-    print(f"IAM CHECK: meeting name - {meeting_name}")
-    print(f"IAM CHECK: summary - {summary}")
-    print(f"IAM CHECK: email list - {recipients}")
-
-    if not summary:
-        return 400, {"error": "Missing summary text"}
-
-    for email in recipients:
-        clean_email = email.strip()
-        if clean_email:
-            sns.subscribe(
-                TopicArn=TOPIC_ARN,
-                Protocol="email",
-                Endpoint=clean_email
+    topic = os.environ["REMINDER_SNS_TOPIC_ARN"]
+    try:
+        check_notification_filters(sns, topic)
+        pending = []
+        for email in recipients:
+            subscription = sns.subscribe(
+                TopicArn=topic, Protocol="email", Endpoint=email,
+                Attributes={"FilterPolicy": json.dumps({"recipient": [email]}),
+                            "FilterPolicyScope": "MessageAttributes"},
             )
+            if not subscription["SubscriptionArn"].startswith("arn:"):
+                pending.append(email)
+        if pending:
+            return response(200, {"status": "confirmation_required",
+                "message": "Recipients must confirm their subscription emails before you send again. Allow 15 minutes for new recipient filters to activate.",
+                "pendingRecipients": pending})
+        result = boto3.client("events").put_events(Entries=[{
+            "Source": os.environ["RECAP_EVENT_SOURCE"],
+            "DetailType": "GeneratedMeetingRecap",
+            "Detail": json.dumps({"subject": f"Meeting Recap: {meeting_name}"[:99],
+                                  "message": f"Meeting: {meeting_name}\n\nSUMMARY:\n{summary}",
+                                  "recipients": recipients}),
+        }])
+        if result.get("FailedEntryCount", 0):
+            return response(502, {"error": "Could not queue the recap. Please try again."})
+        return response(202, {"status": "queued", "message": "Recap queued for confirmed recipients.",
+                              "eventId": result["Entries"][0]["EventId"]})
+    except ValueError as error:
+        return response(503, {"error": str(error)})
+    except (ClientError, BotoCoreError):
+        LOGGER.exception("Recap notification failed")
+        return response(502, {"error": "Unable to queue notifications. Please try again."})
 
-    subject = f"Meeting Recap: {meeting_name}"[:99]
-    message = (
-        f"Meeting: {meeting_name}\n"
-        f"Recipients: {', '.join(recipients)}\n\n"
-        f"SUMMARY:\n{summary}"
-    )
-
-    eventbridge_response = eventbridge.put_events(
-        Entries = [
-            {
-                "Source": os.environ["RECAP_EVENT_SOURCE"],
-                "DetailType": "GeneratedMeetingRecap",
-                "Detail": json.dumps({
-                    "subject": subject,
-                    "message": message
-                })
-            }
-        ]
-    )
-
-    if eventbridge_response.get("FailedEntryCount", 0) > 0:
-        return 500, {"error": "Failed to publish recap event to EventBridge"}
-
-    return 200, {
-        "message": "Recap broadcast queued via EventBridge",
-        "eventId": eventbridge_response["Entries"][0]["EventId"]
-    }
 
 def handle_recap_event(event):
     sns = boto3.client("sns")
-    TOPIC_ARN = os.environ.get("REMINDER_SNS_TOPIC_ARN")
+    topic = os.environ["REMINDER_SNS_TOPIC_ARN"]
     detail = event.get("detail", {})
-
-    response = sns.publish(
-        TopicArn=TOPIC_ARN,
-        Subject=detail.get("subject", "Meeting Recap")[:99],
-        Message=detail.get("message", ""),
-    )
-    print(f"Published SNS recap from EventBridge: {response['MessageId']}")
-    return {"statusCode": 200, "messageId": response["MessageId"]}
+    recipients = detail.get("recipients")
+    if not isinstance(recipients, list) or not recipients:
+        raise ValueError("Recap event is missing recipients.")
+    check_notification_filters(sns, topic)
+    result = sns.publish(TopicArn=topic, Subject=detail.get("subject", "Meeting Recap")[:99],
+                         Message=detail["message"], MessageAttributes=recipient_attributes(recipients))
+    return response(200, {"messageId": result["MessageId"]})
 
 
 def handle_data_route(route, event):

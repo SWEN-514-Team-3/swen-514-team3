@@ -98,6 +98,27 @@ jobs:
         working-directory: infrastructure
         run: terraform output
 
+      - name: Migrate existing email recipient filters
+        if: inputs.action == 'apply'
+        working-directory: infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOPIC_ARN="$(terraform output -raw reminder_sns_topic_arn)"
+          aws sns list-subscriptions-by-topic --topic-arn "$TOPIC_ARN" > "$RUNNER_TEMP/subscriptions.json"
+          while IFS= read -r subscription; do
+            ARN=$(jq -r '.SubscriptionArn' <<< "$subscription")
+            EMAIL=$(jq -r '.Endpoint | ascii_downcase' <<< "$subscription")
+            POLICY=$(jq -cn --arg email "$EMAIL" '{recipient: [$email]}')
+            CURRENT=$(aws sns get-subscription-attributes --subscription-arn "$ARN")
+            if ! jq -e --argjson expected "$POLICY" '((.Attributes.FilterPolicy // "{}") | fromjson) == $expected' <<< "$CURRENT" >/dev/null ||
+               ! jq -e '(.Attributes.FilterPolicyScope // "MessageAttributes") == "MessageAttributes"' <<< "$CURRENT" >/dev/null; then
+              aws sns set-subscription-attributes --subscription-arn "$ARN" --attribute-name FilterPolicy --attribute-value "$POLICY"
+              aws sns set-subscription-attributes --subscription-arn "$ARN" --attribute-name FilterPolicyScope --attribute-value MessageAttributes
+              echo 'Recipient filters updated. Allow 15 minutes before testing notification delivery.'
+            fi
+          done < <(jq -c '.Subscriptions[] | select(.Protocol == "email" and (.SubscriptionArn | startswith("arn:")))' "$RUNNER_TEMP/subscriptions.json")
+
       # The database is private, so seed it through the db-init Lambda (it runs
       # inside the VPC). The login is read here and passed in the invoke call.
       - name: Create tables and load sample data

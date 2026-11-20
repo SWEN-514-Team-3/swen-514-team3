@@ -43,7 +43,7 @@ resource "aws_iam_role_policy" "lambda_sns_publish" {
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Action   = ["sns:Publish"]
+      Action   = ["sns:Publish", "sns:ListSubscriptionsByTopic", "sns:GetSubscriptionAttributes"]
       Resource = module.notifications.reminder_sns_topic_arn
     }]
   })

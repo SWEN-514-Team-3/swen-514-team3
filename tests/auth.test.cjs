@@ -21,7 +21,7 @@ async function start({ user = null, search = '', callbackFails = false, configFa
     document: { getElementById(id) { return elements[id]; }, title: 'Meeting Momentum' }, URL, URLSearchParams,
     fetch: async () => ({ ok: !configFails, json: async () => ({ authority: 'https://issuer.example', domain: 'https://auth.example', client_id: 'public', redirect_uri: 'https://app.example/' }) })
   });
-  return { elements, settings, storage, expire: () => expired(), assigned: () => assigned, cleaned: () => cleaned, removed: () => removed };
+  return { getToken: window.getAccessToken, elements, settings, storage, expire: () => expired(), assigned: () => assigned, cleaned: () => cleaned, removed: () => removed };
 }
 test('signed-out screen and session-scoped authorization code settings', async () => {
   const s = await start();
@@ -70,4 +70,14 @@ test('configuration outage fails closed', async () => {
   assert.equal(s.elements.app.hidden, true);
   assert.equal(s.elements.signIn.disabled, true);
   assert.match(s.elements.authMessage.textContent, /unavailable/);
+});
+
+test('scoped routes receive access token while database routes retain identity claims', async () => {
+  const s = await start({user:{expired:false,profile:{email:'member@example.com'},id_token:'identity-token',access_token:'scoped-token'}});
+  assert.equal(await s.getToken(), 'identity-token');
+  assert.equal(await s.getToken(true), 'scoped-token');
+});
+test('missing scoped token requires login rather than falling back to ID token', async () => {
+  const s = await start({user:{expired:false,profile:{email:'member@example.com'},id_token:'identity-token'}});
+  await assert.rejects(s.getToken(true), /sign out and sign in/);
 });

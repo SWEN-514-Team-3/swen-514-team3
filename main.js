@@ -26,8 +26,9 @@ function requestAPI(path, options) {
             if (!window.getAccessToken)
                 throw new Error("Please sign in first.");
             options = options || {};
+            const requireScope = /^\/(transcribe|broadcast)(?:[/?]|$)/.test(path);
             options.headers = Object.assign({}, options.headers, {
-                Authorization: "Bearer " + (await window.getAccessToken()),
+                Authorization: "Bearer " + (await window.getAccessToken(requireScope)),
             });
             return fetch(config.api_url.replace(/\/$/, "") + path, options);
         })
@@ -146,7 +147,7 @@ async function sendRecap() {
         });
 
         broadcastStatus.className = "mt-3 text-sm text-green-600";
-        broadcastStatus.textContent = "Emails sent succesfully.";
+        broadcastStatus.textContent = broadcastResult.message || "Recap queued.";
     } catch (error) {
         console.error("Error during " + currentStep + ":", error);
         var errorMessage =

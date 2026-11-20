@@ -6,7 +6,7 @@ resource "aws_iam_role_policy" "broadcast_sns_publish" {
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Action   = ["sns:Publish", "sns:Subscribe"]
+      Action   = ["sns:Publish", "sns:Subscribe", "sns:ListSubscriptionsByTopic", "sns:GetSubscriptionAttributes"]
       Resource = module.notifications.reminder_sns_topic_arn
     }]
   })

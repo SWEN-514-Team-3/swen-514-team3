@@ -46,10 +46,14 @@
         jwks_uri: config.authority + "/.well-known/jwks.json"
       }
     });
-    window.getAccessToken = async function () {
+    window.getAccessToken = async function (requireScope = false) {
       const user = await manager.getUser();
       if (!user || user.expired) throw new Error("Please sign in again.");
-      return user.id_token;
+      // Existing database routes use email claims from the ID token.
+      // Routes requiring OAuth scopes must receive the access token instead.
+      const token = requireScope ? user.access_token : user.id_token;
+      if (!token) throw new Error("Please sign out and sign in again.");
+      return token;
     };
     manager.events.addAccessTokenExpired(async function () {
       render(null);

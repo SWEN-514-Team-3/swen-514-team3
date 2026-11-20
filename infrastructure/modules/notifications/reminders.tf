@@ -7,10 +7,12 @@ resource "aws_sns_topic" "action_item_reminders" {
 
 
 resource "aws_sns_topic_subscription" "reminder_email" {
-  count     = var.reminder_email != null ? 1 : 0
-  topic_arn = aws_sns_topic.action_item_reminders.arn
-  protocol  = "email"
-  endpoint  = var.reminder_email
+  count               = var.reminder_email != null ? 1 : 0
+  topic_arn           = aws_sns_topic.action_item_reminders.arn
+  protocol            = "email"
+  endpoint            = var.reminder_email
+  filter_policy       = jsonencode({ recipient = [lower(trimspace(var.reminder_email))] })
+  filter_policy_scope = "MessageAttributes"
 }
 
 # EventBridge Scheduler execution role

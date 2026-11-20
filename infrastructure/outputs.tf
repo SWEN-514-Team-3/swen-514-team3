@@ -45,3 +45,7 @@ output "cognito_pool_id" { value = module.authentication.pool_id }
 output "cognito_client_id" { value = module.authentication.client_id }
 
 output "cognito_domain" { value = module.authentication.domain }
+
+output "reminder_sns_topic_arn" {
+  value = module.notifications.reminder_sns_topic_arn
+}

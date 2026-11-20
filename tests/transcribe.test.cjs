@@ -26,3 +26,20 @@ test('missing job ID is rejected', async()=>{
   const {context}=setup([{}]);
   await assert.rejects(context.transcribeAudio(file), /job ID/);
 });
+
+test('scoped transcription and broadcast requests use access tokens', async()=>{
+  const context=vm.createContext({
+    document:{getElementById:()=>({addEventListener(){}})},
+    window:{getAccessToken:async scoped=>scoped?'access-token':'id-token'},
+    fetch:async(url,options)=>{
+      if(url==='auth-config.json') return {ok:true,json:async()=>({api_url:'https://api.example'})};
+      const expected = url.includes('/meetings') ? 'Bearer id-token' : 'Bearer access-token';
+      assert.equal(options.headers.Authorization,expected);
+      return {ok:true,status:200,json:async()=>({})};
+    }
+  });
+  vm.runInContext(fs.readFileSync('main.js','utf8'),context);
+  for(const path of ['/transcribe?filename=test.wav','/transcribe/job-1','/broadcast','/meetings']) {
+    await context.requestAPI(path);
+  }
+});

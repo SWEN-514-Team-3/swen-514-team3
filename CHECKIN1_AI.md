@@ -30,3 +30,11 @@ The Terraform `database_name` variable defaults to `meetingmomentum`; the databa
 Transcription uploads return HTTP 202 with a `jobId`. The browser checks the authenticated `GET /transcribe/{jobId}` endpoint every three seconds, up to 15 minutes, and displays the completed transcript or a failure message. Jobs are scoped to the recordings bucket and the signed-in Cognito user. Closing the page stops browser polling but does not cancel the AWS job. Audio is still uploaded through API Gateway/Lambda, so existing payload-size limits apply. This change removes the wait for the complete transcription from the 25-second Lambda invocation; it does not remove upload-size limits.
 
 Local transcription checks: `python -m unittest discover -s tests -p test_transcribe.py` and `node --test tests/transcribe.test.cjs`. After deployment, test a recording whose transcription takes longer than 25 seconds and confirm another user cannot retrieve its job.
+
+## Notification authentication and delivery
+
+Transcription and broadcast requests use Cognito access tokens because their API routes require the `openid` scope. Existing database routes retain ID tokens for their email claims. Sign out and back in after deploying updated frontend assets.
+
+Recaps return JSON HTTP responses and report queued or confirmation-required status, not guaranteed email delivery. SNS subscriptions filter by normalized recipient email; recap events carry selected recipients, and action reminders carry only the owner's email. Setup migrates confirmed legacy email subscriptions to these filters. Publishing refuses unfiltered or unsupported confirmed subscriptions. Pending legacy subscriptions must be confirmed and Setup rerun to migrate them before publishing.
+
+Confirm SNS subscription emails and allow up to 15 minutes after new or changed filters before testing delivery. This propagation delay is an AWS limitation; use synthetic data during migration. Verify with two confirmed addresses that an Alice-only recap and reminder do not arrive at Bob's address. Reminders require the owner's address to have a confirmed subscription (through recap subscription or the configured reminder email).
