@@ -48,7 +48,9 @@ async function sendRecap() {
     // inputs
     var meetingAudio = document.getElementById("meeting-audio");
     var emailList = document.getElementById("email-list");
-    var meetingName = document.getElementById("meeting-name");
+    var meetingName = document
+        .getElementById("meeting-name")
+        .textContent.trim();
 
     // status labels for sending process
     var transcriptionStatus = document.getElementById("transcription-status");
