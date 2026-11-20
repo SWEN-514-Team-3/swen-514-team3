@@ -86,7 +86,7 @@ resource "aws_apigatewayv2_integration" "broadcast_lambda" {
   payload_format_version = "2.0"
 }
 
-# 3. API Gateway v2 Route (matching your POST /transcribe route)
+# API Gateway v2 Route
 resource "aws_apigatewayv2_route" "broadcast" {
   api_id               = aws_apigatewayv2_api.http.id
   route_key            = "POST /broadcast"
@@ -96,11 +96,49 @@ resource "aws_apigatewayv2_route" "broadcast" {
   authorization_scopes = ["openid"]
 }
 
-# 4. Permission for API Gateway HTTP API to invoke broadcast Lambda
+# Permission for API Gateway HTTP API to invoke broadcast Lambda
 resource "aws_lambda_permission" "apigw_broadcast" {
   statement_id  = "AllowAPIGatewayInvokeBroadcast"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.broadcast.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http.execution_arn}/*/*"
+}
+
+resource "aws_iam_role_policy" "broadcast_eventbridge_put" {
+  name = "${var.project_name}-broadcast-eventbridge-put"
+  role = aws_iam_role.broadcast_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["events:PutEvents"]
+      Resource = "arn:aws:events:*:*:event-bus/default"
+    }]
+  })
+}
+
+resource "aws_cloudwatch_event_rule" "meeting_recap_rule" {
+  name        = "${var.project_name}-meeting-recap-rule"
+  description = "Routes generated meeting recaps to the broadcast Lambda"
+
+  event_pattern = jsonencode({
+    source      = ["meeting-momentum.app"]
+    detail-type = ["GeneratedMeetingRecap"]
+  })
+}
+
+resource "aws_cloudwatch_event_target" "broadcast_recap_target" {
+  rule      = aws_cloudwatch_event_rule.meeting_recap_rule.name
+  target_id = "TriggerBroadcastLambda"
+  arn       = aws_lambda_function.broadcast.arn
+}
+
+resource "aws_lambda_permission" "eventbridge_broadcast" {
+  statement_id  = "AllowEventBridgeInvokeBroadcast"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.broadcast.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.meeting_recap_rule.arn
 }

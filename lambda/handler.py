@@ -120,9 +120,14 @@ DATA_ROUTES = {
 
 
 def handle_broadcast(event, context):
+    if event.get("source") == "meeting-momentum.app" and event.get("detail-type") == "GeneratedMeetingRecap":
+        return handle_recap_event(event)
+
     body = json.loads(event.get("body"))
     sns = boto3.client("sns")
+    eventbridge = boto3.client("events")
     TOPIC_ARN = os.environ.get("REMINDER_SNS_TOPIC_ARN")
+
     meeting_name = body.get("meetingName", "Untitled Meeting")
     summary = body.get("summary", "")
     recipients = body.get("recipients") or "Untitled meeting"
@@ -140,7 +145,7 @@ def handle_broadcast(event, context):
             sns.subscribe(
                 TopicArn=TOPIC_ARN,
                 Protocol="email",
-                Endpoint=clean_email,
+                Endpoint=clean_email
             )
 
     subject = f"Meeting Recap: {meeting_name}"[:99]
@@ -150,16 +155,39 @@ def handle_broadcast(event, context):
         f"SUMMARY:\n{summary}"
     )
 
-    response = sns.publish(
-        TopicArn=TOPIC_ARN,
-        Subject=subject,
-        Message=message,
+    eventbridge_response = eventbridge.put_events(
+        Entries = [
+            {
+                "Source": "meeting-momentum.app",
+                "DetailType": "GeneratedMeetingRecap",
+                "Detail": json.dumps({
+                    "subject": subject,
+                    "message": message
+                })
+            }
+        ]
     )
 
+    if eventbridge_response.get("FailedEntryCount", 0) > 0:
+        return 500, {"error": "Failed to publish recap event to EventBridge"}
+
     return 200, {
-        "message": "Recap broadcast sent",
-        "messageId": response["MessageId"],
+        "message": "Recap broadcast queued via EventBridge",
+        "eventId": eventbridge_response["Entries"][0]["EventId"]
     }
+
+def handle_recap_event(event):
+    sns = boto3.client("sns")
+    TOPIC_ARN = os.environ.get("REMINDER_SNS_TOPIC_ARN")
+    detail = event.get("detail", {})
+
+    response = sns.publish(
+        TopicArn=TOPIC_ARN,
+        Subject=detail.get("subject", "Meeting Recap")[:99],
+        Message=detail.get("message", ""),
+    )
+    print(f"Published SNS recap from EventBridge: {response['MessageId']}")
+    return {"statusCode": 200, "messageId": response["MessageId"]}
 
 
 def handle_data_route(route, event):
