@@ -17,6 +17,12 @@ variable "frontend_bucket_name" {
 
 }
 
+variable "recordings_bucket_name" {
+  description = "Optional exact recordings bucket name. Leave null to let Terraform generate a unique suffix."
+  type        = string
+  default     = null
+}
+
 variable "lambda_permissions_boundary_arn" {
   description = "Course-required IAM permissions boundary for the Lambda execution role, if applicable."
   type        = string

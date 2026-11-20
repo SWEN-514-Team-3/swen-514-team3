@@ -3,6 +3,7 @@ import re
 import time
 import uuid
 import json
+import os
 
 import boto3
 import urllib.parse
@@ -11,7 +12,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 s3 = boto3.client("s3")
 transcribe = boto3.client('transcribe')
-BUCKET_NAME = "audio-drop-bucket"
+BUCKET_NAME = os.environ["S3_BUCKET_NAME"]
 
 def response(status_code, body):
     return {

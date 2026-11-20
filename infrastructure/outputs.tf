@@ -1,3 +1,8 @@
+output "recordings_bucket_name" {
+  description = "S3 bucket storing meeting recordings and transcripts."
+  value       = aws_s3_bucket.recordings_bucket.bucket
+}
+
 output "frontend_bucket_name" {
   description = "S3 bucket hosting the frontend."
   value       = module.frontend.bucket_name

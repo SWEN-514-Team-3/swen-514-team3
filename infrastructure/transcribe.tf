@@ -1,6 +1,7 @@
 # bucket for temporary file use
 resource "aws_s3_bucket" "recordings_bucket" {
-  bucket        = "audio-drop-bucket"
+  bucket        = var.recordings_bucket_name
+  bucket_prefix = var.recordings_bucket_name == null ? "${var.project_name}-recordings-" : null
   force_destroy = true
 
   tags = {
