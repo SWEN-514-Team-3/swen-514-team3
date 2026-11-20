@@ -20,7 +20,7 @@ variable "recordings_bucket_prefix" {
   type        = string
   default     = "meeting-momentum-recordings-"
   validation {
-    condition     = length(var.bucket_prefix) <= 35
+    condition     = length(var.recordings_bucket_prefix) <= 35
     error_message = "The bucket prefix must be at most 35 characters to leave room for Terraform's suffix."
   }
 }
