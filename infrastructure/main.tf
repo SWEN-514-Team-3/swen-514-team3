@@ -12,6 +12,7 @@ module "networking" {
 module "database" {
   source            = "./modules/database"
   name              = var.project_name
+  database_name     = var.database_name
   subnet_ids        = module.networking.private_subnet_ids
   security_group_id = module.networking.database_security_group_id
 }
@@ -93,7 +94,7 @@ resource "aws_lambda_function" "api" {
     variables = {
       BEDROCK_MODEL_ID = var.bedrock_model_id
       DB_HOST          = module.database.db_endpoint
-      DB_NAME          = "meetingmomentum"
+      DB_NAME          = module.database.db_name
       DB_SECRET_ARN    = module.database.db_secret_arn
       SNS_TOPIC_ARN    = module.notifications.reminder_sns_topic_arn
     }
@@ -111,7 +112,7 @@ resource "aws_lambda_function" "api" {
 # vpc for s3
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = module.networking.vpc_id
-  service_name      = "com.amazonaws.us-east-1.s3"
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = module.networking.private_route_table_ids
 }

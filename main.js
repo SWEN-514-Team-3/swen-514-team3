@@ -45,6 +45,26 @@ function requestAPI(path, options) {
         });
 }
 
+async function transcribeAudio(file) {
+    const data = await requestAPI('/transcribe?filename=' + encodeURIComponent(file.name), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: await file.arrayBuffer(),
+    });
+    if (!data.jobId) throw new Error('The transcription service did not return a job ID.');
+    // Each status check is a separate request; no Lambda waits for the job.
+    for (let attempt = 0; attempt < 300; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        const result = await requestAPI('/transcribe/' + encodeURIComponent(data.jobId));
+        if (result.status === 'completed') return result;
+        if (result.status === 'failed') throw new Error(result.error || 'Transcription failed.');
+        if (!['queued', 'in_progress'].includes(result.status)) {
+            throw new Error('Unexpected transcription status.');
+        }
+    }
+    throw new Error('Transcription is taking longer than expected. The job may still be running.');
+}
+
 async function sendRecap() {
     // inputs
     var meetingAudio = document.getElementById("meeting-audio");
@@ -74,17 +94,7 @@ async function sendRecap() {
         broadcastStatus.textContent = "Waiting for meeting summary...";
 
         // run transcribe
-        var arrayBuffer = await file.arrayBuffer();
-        var transcribeResult = await requestAPI(
-            "/transcribe?filename=" + encodeURIComponent(file.name),
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/octet-stream",
-                },
-                body: arrayBuffer,
-            },
-        );
+        var transcribeResult = await transcribeAudio(file);
 
         var transcriptionText = transcribeResult.transcript;
         transcriptionStatus.className = "mt-3 text-sm text-green-600";
@@ -204,18 +214,8 @@ async function runTranscribe() {
     status.textContent = "Reading audio file...";
 
     try {
-        var arrayBuffer = await file.arrayBuffer();
         status.textContent = "Transcribing audio file...";
-        var data = await requestAPI(
-            "/transcribe?filename=" + encodeURIComponent(file.name),
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/octet-stream",
-                },
-                body: arrayBuffer,
-            },
-        );
+        var data = await transcribeAudio(file);
         result.value = data.transcript;
         status.className = "mt-3 text-sm text-green-600";
         status.textContent = "Transcription completed.";

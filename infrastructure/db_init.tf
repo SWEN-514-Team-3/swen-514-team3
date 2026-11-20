@@ -28,7 +28,7 @@ resource "aws_lambda_function" "db_init" {
   environment {
     variables = {
       DB_HOST = module.database.db_endpoint
-      DB_NAME = "meetingmomentum"
+      DB_NAME = module.database.db_name
     }
   }
 

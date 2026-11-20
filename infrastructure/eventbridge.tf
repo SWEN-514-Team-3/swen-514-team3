@@ -69,6 +69,7 @@ resource "aws_lambda_function" "broadcast" {
 
   environment {
     variables = {
+      RECAP_EVENT_SOURCE     = "${var.project_name}.app"
       REMINDER_SNS_TOPIC_ARN = module.notifications.reminder_sns_topic_arn
     }
   }
@@ -124,7 +125,7 @@ resource "aws_cloudwatch_event_rule" "meeting_recap_rule" {
   description = "Routes generated meeting recaps to the broadcast Lambda"
 
   event_pattern = jsonencode({
-    source      = ["meeting-momentum.app"]
+    source      = ["${var.project_name}.app"]
     detail-type = ["GeneratedMeetingRecap"]
   })
 }

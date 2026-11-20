@@ -1,128 +1,93 @@
 import base64
-import re
-import time
-import uuid
+import hashlib
 import json
+import logging
 import os
+import re
+import uuid
 
 import boto3
-import urllib.parse
-import logging
 
 LOGGER = logging.getLogger(__name__)
-s3 = boto3.client("s3")
+s3 = boto3.client('s3')
 transcribe = boto3.client('transcribe')
-BUCKET_NAME = os.environ["S3_BUCKET_NAME"]
+BUCKET_NAME = os.environ['S3_BUCKET_NAME']
+
 
 def response(status_code, body):
     return {
-        "statusCode": status_code,
-        "headers": {"Content-Type": "application/json", "Cache-Control": "no-store"},
-        "body": json.dumps(body),
+        'statusCode': status_code,
+        'headers': {'Content-Type': 'application/json', 'Cache-Control': 'no-store'},
+        'body': json.dumps(body),
     }
 
 
+def job_prefix(user_id):
+    # Scope jobs to this deployment and Cognito identity, even in a shared account.
+    owner = hashlib.sha256(f'{BUCKET_NAME}:{user_id}'.encode()).hexdigest()
+    return f'mm-{owner}-'
+
+
 def lambda_handler(event, context):
-    print("Yay we made it here!!")
-    route = event.get("routeKey", "")
-
-    # print logs because stuff isnt working
-    try:
-        print(f"[IAM CHECK] Attempting to access S3 bucket '{BUCKET_NAME}'...")
-        s3.head_bucket(Bucket=BUCKET_NAME)
-        print(f"[IAM CHECK] SUCCESS: Access to S3 bucket '{BUCKET_NAME}' is allowed.")
-    except Exception as e:
-        print(f"[IAM CHECK] FAILED S3 access: {str(e)}")
+    route = event.get('routeKey', '')
+    if route not in ('POST /transcribe', 'GET /transcribe/{jobId}'):
+        return response(404, {'error': 'Route not found.'})
+    claims = event.get('requestContext', {}).get('authorizer', {}).get('jwt', {}).get('claims', {})
+    user_id = claims.get('sub')
+    if not user_id:
+        return response(401, {'error': 'Please sign in before accessing a transcription.'})
 
     try:
-        print("[IAM CHECK] Attempting to access Transcribe service...")
-        transcribe = boto3.client("transcribe")
-        transcribe.list_transcription_jobs(MaxResults=1)
-        print("[IAM CHECK] SUCCESS: 'transcribe:ListTranscriptionJobs' (Transcribe access) allowed.")
-    except Exception as e:
-        print(f"[IAM CHECK] FAILED Transcribe access: {str(e)}")
+        if route == 'GET /transcribe/{jobId}':
+            job_id = (event.get('pathParameters') or {}).get('jobId', '')
+            if not re.fullmatch(re.escape(job_prefix(user_id)) + r'[0-9a-f]{32}', job_id):
+                return response(404, {'error': 'Transcription not found.'})
+            job = transcribe.get_transcription_job(TranscriptionJobName=job_id)['TranscriptionJob']
+            status = job['TranscriptionJobStatus']
+            if status in ('QUEUED', 'IN_PROGRESS'):
+                return response(200, {'status': status.lower(), 'jobId': job_id})
+            if status == 'FAILED':
+                return response(200, {'status': 'failed', 'jobId': job_id,
+                                      'error': 'Transcription failed. Check the recording and try again.'})
+            if status != 'COMPLETED':
+                raise RuntimeError('Unexpected transcription status')
+            key = f'transcripts/{job_id}.json'
+            obj = s3.get_object(Bucket=BUCKET_NAME, Key=key)
+            results = json.loads(obj['Body'].read())['results']
+            transcript = results['transcripts'][0]['transcript']
+            segments = results.get('audio_segments') or []
+            if segments:
+                transcript += '\n\nTimestamps:\n' + ''.join(
+                    f"{segment['start_time']}-{segment['end_time']}: {segment['transcript']}\n"
+                    for segment in segments
+                )
+            return response(200, {'status': 'completed', 'jobId': job_id,
+                                  'service': 'aws-transcribe', 'transcriptPath': key,
+                                  'transcript': transcript})
 
-    print(f"Incoming route: {route}, http method: {event.get('httpMethod')}")
-
-    if route == "POST /transcribe":
-        claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
-        if not claims.get("sub"):
-            return response(401, {"error": "Please sign in before starting a transcription."})
-
-        # generate uuid
-        unique_id = uuid.uuid4().hex[:8]
-
-        # get file name from query params or generate a unique name
-        query_params = event.get("queryStringParameters") or {}
-        filename = query_params.get("filename", f"audio-{unique_id}.m4a")
-
-        print(f"Target file name for upload: {filename}")
-
-        raw_body = event.get("body", "")
-        if event.get("isBase64Encoded"):
-            file_bytes = base64.b64decode(raw_body)
-        elif isinstance(raw_body, str):
-            file_bytes = raw_body.encode("utf-8")
-        else:
-            file_bytes = raw_body
-
-        if not file_bytes:
-            return response(400, {"error": "No audio file payload received."})
-
-        # check if the extension is valid
-        file_ext = filename.split(".")[-1].lower() if "." in filename else "m4a"
-        if file_ext not in ["mp3", "mp4", "m4a", "wav", "flac", "ogg", "amr", "webm"]:
-            return response(400, {"error": f"Unsupported media format: {file_ext}"})
-
-        # upload to s3 bucket
+        filename = (event.get('queryStringParameters') or {}).get('filename', 'audio.m4a')
+        extension = filename.rsplit('.', 1)[-1].lower()
+        if extension not in ('mp3', 'mp4', 'm4a', 'wav', 'flac', 'ogg', 'amr', 'webm'):
+            return response(400, {'error': 'Unsupported media format.'})
+        raw_body = event.get('body') or ''
         try:
-            s3_key = f"recordings/{unique_id}-{filename}"
-            print(f"Uploading file to S3: {s3_key}")
-
-            s3.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=file_bytes)
-            print("Upload successful.")
-
-            # start transcription job
-            clean_filename = re.sub(r"[^a-zA-Z0-9-_]", "-", filename)
-            job_name = f"transcribe-{clean_filename}-{unique_id}"
-            transcribe.start_transcription_job(
-                TranscriptionJobName=job_name,
-                Media={"MediaFileUri": f"s3://{BUCKET_NAME}/{s3_key}"},
-                MediaFormat=file_ext,
-                LanguageCode="en-US",
-                OutputBucketName=BUCKET_NAME,
-                OutputKey=f"transcripts/{job_name}.json"
+            audio = base64.b64decode(raw_body, validate=True) if event.get('isBase64Encoded') else (
+                raw_body.encode('utf-8') if isinstance(raw_body, str) else raw_body
             )
-            print("Transcription job started successfully.")
-
-            while True:
-                job_status = transcribe.get_transcription_job(TranscriptionJobName=job_name)
-                status = job_status["TranscriptionJob"]["TranscriptionJobStatus"]
-                if status == "COMPLETED":
-                    break
-                if status == "FAILED":
-                    raise RuntimeError("Transcription job failed.")
-                time.sleep(1)
-
-            obj = s3.get_object(Bucket=BUCKET_NAME, Key=f"transcripts/{job_name}.json")
-            data = json.loads(obj["Body"].read().decode("utf-8"))
-            transcript_text = data["results"]["transcripts"][0]["transcript"]
-
-            transcript_timestamped = transcript_text + "\n\nTimestamps:\n"
-            audio_segments = data["results"]["audio_segments"]
-            for segment in audio_segments:
-                built_line = f"{segment["start_time"]}-{segment["end_time"]}: {segment["transcript"]} \n"
-                transcript_timestamped += built_line
-
-            # return the transcript
-            return response(200, {
-                "status": "completed",
-                "service": "aws-transcribe",
-                "transcriptPath": f"transcripts/{job_name}.json",
-                "transcript": transcript_timestamped
-            })
-        except Exception as error:
-            LOGGER.exception("Transcribe start failed: %s", str(error))
-            return response(500, {"error": f"Failed to start transcription: {str(error)}"})
-
-    return response(404, {"error": "Route not found."})
+        except (ValueError, TypeError):
+            return response(400, {'error': 'Invalid audio payload.'})
+        if not audio:
+            return response(400, {'error': 'No audio file payload received.'})
+        job_id = job_prefix(user_id) + uuid.uuid4().hex
+        key = f'recordings/{job_id}.{extension}'
+        s3.put_object(Bucket=BUCKET_NAME, Key=key, Body=audio)
+        transcribe.start_transcription_job(
+            TranscriptionJobName=job_id,
+            Media={'MediaFileUri': f's3://{BUCKET_NAME}/{key}'},
+            MediaFormat=extension, LanguageCode='en-US',
+            OutputBucketName=BUCKET_NAME, OutputKey=f'transcripts/{job_id}.json',
+        )
+        return response(202, {'status': 'queued', 'jobId': job_id})
+    except Exception:
+        LOGGER.exception('Transcription request failed')
+        return response(500, {'error': 'Unable to process transcription. Please try again.'})

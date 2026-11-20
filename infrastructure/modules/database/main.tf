@@ -9,7 +9,7 @@ resource "aws_db_instance" "main" {
   engine_version              = "17"
   instance_class              = "db.t4g.micro"
   allocated_storage           = 20
-  db_name                     = "meetingmomentum"
+  db_name                     = var.database_name
   username                    = "appadmin"
   manage_master_user_password = true
   db_subnet_group_name        = aws_db_subnet_group.main.name

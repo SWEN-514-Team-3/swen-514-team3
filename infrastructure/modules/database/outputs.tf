@@ -12,3 +12,7 @@ output "subnet_ids" {
   description = "Subnets the database lives in."
   value       = var.subnet_ids
 }
+
+output "db_name" {
+  value = aws_db_instance.main.db_name
+}

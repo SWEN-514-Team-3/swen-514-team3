@@ -31,6 +31,7 @@ jobs:
     if: inputs.confirm == 'destroy'
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
+      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
       TF_VAR_aws_region: ${{ vars.AWS_REGION }}
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_STATE_KEY: ${{ secrets.TF_STATE_KEY }}
@@ -46,6 +47,9 @@ jobs:
           test -n "$AWS_REGION" || { echo 'Missing AWS_REGION variable'; exit 1; }
           test -n "$TF_STATE_BUCKET" || { echo 'Missing TF_STATE_BUCKET variable'; exit 1; }
           test -n "$TF_STATE_KEY" || { echo 'Missing TF_STATE_KEY environment secret'; exit 1; }
+          if [ -n "$PROJECT_NAME" ]; then
+            printf 'TF_VAR_project_name=%s\n' "$PROJECT_NAME" >> "$GITHUB_ENV"
+          fi
           if [ -n "$LAMBDA_PERMISSIONS_BOUNDARY_ARN" ]; then
             printf 'TF_VAR_lambda_permissions_boundary_arn=%s\n' "$LAMBDA_PERMISSIONS_BOUNDARY_ARN" >> "$GITHUB_ENV"
           fi

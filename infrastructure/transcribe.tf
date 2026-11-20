@@ -114,3 +114,12 @@ resource "aws_apigatewayv2_route" "transcribe" {
   authorizer_id        = aws_apigatewayv2_authorizer.cognito.id
   authorization_scopes = ["openid"]
 }
+
+resource "aws_apigatewayv2_route" "transcribe_status" {
+  api_id               = aws_apigatewayv2_api.http.id
+  route_key            = "GET /transcribe/{jobId}"
+  target               = "integrations/${aws_apigatewayv2_integration.transcribe_lambda.id}"
+  authorization_type   = "JWT"
+  authorizer_id        = aws_apigatewayv2_authorizer.cognito.id
+  authorization_scopes = ["openid"]
+}

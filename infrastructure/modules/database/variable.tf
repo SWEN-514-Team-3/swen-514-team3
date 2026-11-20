@@ -12,3 +12,8 @@ variable "security_group_id" {
   description = "Database security group supplied by the networking module."
   type        = string
 }
+
+variable "database_name" {
+  description = "Initial PostgreSQL database name."
+  type        = string
+}

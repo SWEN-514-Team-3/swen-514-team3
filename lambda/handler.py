@@ -271,7 +271,7 @@ DATA_ROUTES = {
 
 
 def handle_broadcast(event, context):
-    if event.get("source") == "meeting-momentum.app" and event.get("detail-type") == "GeneratedMeetingRecap":
+    if event.get("source") == os.environ["RECAP_EVENT_SOURCE"] and event.get("detail-type") == "GeneratedMeetingRecap":
         return handle_recap_event(event)
 
     body = json.loads(event.get("body"))
@@ -309,7 +309,7 @@ def handle_broadcast(event, context):
     eventbridge_response = eventbridge.put_events(
         Entries = [
             {
-                "Source": "meeting-momentum.app",
+                "Source": os.environ["RECAP_EVENT_SOURCE"],
                 "DetailType": "GeneratedMeetingRecap",
                 "Detail": json.dumps({
                     "subject": subject,

@@ -20,3 +20,13 @@ For Check-in 1, rehearse Teardown and repeat Setup first. Arrive with the applic
 Run `node --test tests/auth.test.cjs tests/ai.test.cjs` and `python -m unittest discover -s tests -p test_bedrock.py` with boto3 installed. Terraform checks: init, fmt -check -recursive, validate, and authenticated plan. Mocked unit tests do not prove actual model access or network reachability. The deployed browser test must pass before claiming AI readiness.
 
 The Lambda has bounded text input, 800 output tokens, one SDK attempt, and a 25-second timeout. Model access errors, throttling, blocked/incomplete output, and connectivity failures are handled. No prompt or token is logged. Session storage and the existing client library provide the bearer token; API Gateway validates issuer, audience, and the openid scope. Generated output uses textarea.value to avoid interpreting model text as HTML.
+
+## Deployment configuration and transcription updates
+
+Setup and Teardown both accept the optional GitHub environment variable `PROJECT_NAME` (for example, `mm-haimarr`). Use a different value for each independent deployment in the same AWS account and keep a separate `TF_STATE_KEY` for each. Names must start with a lowercase letter, contain lowercase letters/digits separated by single hyphens, and be at most 25 characters. Leaving it unset preserves `meeting-momentum`. Keep the value consistent between Setup and Teardown; changing it for deployed resources can cause replacements. Review a plan before migrating an existing environment. Recap event sources are also scoped by project name.
+
+The Terraform `database_name` variable defaults to `meetingmomentum`; the database module exports the actual name to both application and database-init Lambdas. Changing this value may replace RDS. The S3 gateway endpoint now follows `aws_region`.
+
+Transcription uploads return HTTP 202 with a `jobId`. The browser checks the authenticated `GET /transcribe/{jobId}` endpoint every three seconds, up to 15 minutes, and displays the completed transcript or a failure message. Jobs are scoped to the recordings bucket and the signed-in Cognito user. Closing the page stops browser polling but does not cancel the AWS job. Audio is still uploaded through API Gateway/Lambda, so existing payload-size limits apply. This change removes the wait for the complete transcription from the 25-second Lambda invocation; it does not remove upload-size limits.
+
+Local transcription checks: `python -m unittest discover -s tests -p test_transcribe.py` and `node --test tests/transcribe.test.cjs`. After deployment, test a recording whose transcription takes longer than 25 seconds and confirm another user cannot retrieve its job.
