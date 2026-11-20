@@ -1,7 +1,8 @@
 
 # SNS topic that distributes action-item reminders
 resource "aws_sns_topic" "action_item_reminders" {
-  name = "${var.project_name}-action-item-reminders"
+  name         = "${var.project_name}-action-item-reminders"
+  display_name = "Meeting Momentum"
 }
 
 
